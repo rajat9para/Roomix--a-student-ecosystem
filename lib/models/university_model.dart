@@ -29,6 +29,7 @@ class UniversityModel {
     required this.updatedAt,
   });
 
+
   factory UniversityModel.fromJson(Map<String, dynamic> json) {
     return UniversityModel(
       id: json['_id'] ?? '',
@@ -44,6 +45,51 @@ class UniversityModel {
       isActive: json['isActive'] ?? true,
       createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+
+  factory UniversityModel.fromFirestore(String id, Map<String, dynamic> map) {
+    return UniversityModel(
+      id: id,
+      name: map['name'] ?? '',
+      city: map['city'] ?? '',
+      state: map['state'] ?? '',
+      address: map['address'] ?? '',
+      description: map['description'] ?? '',
+      zipCode: map['zipCode'],
+      imageUrl: map['imageUrl'],
+      isActive: map['isActive'] ?? true,
+
+      // Firestore doesn't store these → give defaults
+      location: Location(latitude: 0, longitude: 0),
+      campusBounds: CampusBounds(
+        northEast: LatLng(latitude: 0, longitude: 0),
+        southWest: LatLng(latitude: 0, longitude: 0),
+      ),
+
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  factory UniversityModel.fromMap(String id, Map<String, dynamic> map) {
+    return UniversityModel(
+      id: id,
+      name: map['name'] ?? '',
+      city: map['city'] ?? '',
+      state: map['state'] ?? '',
+      location: Location(latitude: 0, longitude: 0),
+      campusBounds: CampusBounds(
+        northEast: LatLng(latitude: 0, longitude: 0),
+        southWest: LatLng(latitude: 0, longitude: 0),
+      ),
+      address: map['address'] ?? '',
+      description: map['description'] ?? '',
+      zipCode: map['zipCode'],
+      imageUrl: map['imageUrl'],
+      isActive: map['isActive'] ?? true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
   }
 

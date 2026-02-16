@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:roomix/constants/app_colors.dart';
 import 'package:roomix/models/university_model.dart';
 import 'package:roomix/providers/user_preferences_provider.dart';
-import 'package:roomix/services/api_service.dart';
+import 'package:roomix/services/firebase_service.dart';
 import 'package:roomix/screens/home/home_screen.dart';
 
 class UniversitySelectionScreen extends StatefulWidget {
@@ -36,18 +36,104 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
   Future<void> _loadUniversities() async {
     try {
       setState(() => _isLoading = true);
-      final universities = await ApiService.getAllUniversities();
-      setState(() {
-        _universities = universities;
-        _filteredUniversities = universities;
-        _isLoading = false;
-        _errorMessage = '';
-      });
+      
+      // Fetch from Firebase
+      final firebaseService = FirebaseService();
+      final snapshot = await firebaseService.getUniversities(forceRefresh: true);
+      
+      if (snapshot.isEmpty) {
+        // Seed with default universities if none exist
+        await _seedUniversities();
+        final newSnapshot = await firebaseService.getUniversities();
+        setState(() {
+          _universities = newSnapshot;
+          _filteredUniversities = newSnapshot;
+          _isLoading = false;
+          _errorMessage = '';
+        });
+      } else {
+        setState(() {
+          _universities = snapshot;
+          _filteredUniversities = snapshot;
+          _isLoading = false;
+          _errorMessage = '';
+        });
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load universities: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _seedUniversities() async {
+    final firebaseService = FirebaseService();
+    final defaultUniversities = [
+      {
+        'name': 'Delhi University',
+        'city': 'New Delhi',
+        'state': 'Delhi',
+        'country': 'India',
+      },
+      {
+        'name': 'IIT Bombay',
+        'city': 'Mumbai',
+        'state': 'Maharashtra',
+        'country': 'India',
+      },
+      {
+        'name': 'IIT Delhi',
+        'city': 'New Delhi',
+        'state': 'Delhi',
+        'country': 'India',
+      },
+      {
+        'name': 'BITS Pilani',
+        'city': 'Pilani',
+        'state': 'Rajasthan',
+        'country': 'India',
+      },
+      {
+        'name': 'VIT Vellore',
+        'city': 'Vellore',
+        'state': 'Tamil Nadu',
+        'country': 'India',
+      },
+      {
+        'name': 'SRM University',
+        'city': 'Chennai',
+        'state': 'Tamil Nadu',
+        'country': 'India',
+      },
+      {
+        'name': 'Amity University',
+        'city': 'Noida',
+        'state': 'Uttar Pradesh',
+        'country': 'India',
+      },
+      {
+        'name': 'Chandigarh University',
+        'city': 'Chandigarh',
+        'state': 'Punjab',
+        'country': 'India',
+      },
+      {
+        'name': 'University of Mumbai',
+        'city': 'Mumbai',
+        'state': 'Maharashtra',
+        'country': 'India',
+      },
+      {
+        'name': 'Jadavpur University',
+        'city': 'Kolkata',
+        'state': 'West Bengal',
+        'country': 'India',
+      },
+    ];
+
+    for (final uni in defaultUniversities) {
+      await firebaseService.createUniversity(uni);
     }
   }
 
@@ -69,18 +155,9 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
   }
 
   Future<void> _selectUniversity(UniversityModel university) async {
-    setState(() => _selectedUniversity = university);
-
     try {
       final preferencesProvider = context.read<UserPreferencesProvider>();
       await preferencesProvider.setSelectedUniversity(university);
-
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -100,18 +177,13 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             _buildHeader(),
-            
-            // Progress Bar
-            _buildProgressBar(),
-            
-            // Main Content
+
+            if (widget.isOnboarding) _buildProgressBar(),  // ✅ only first time install
+
             Expanded(
               child: _buildContent(),
             ),
-            
-            // Bottom Action Bar
             _buildBottomBar(),
           ],
         ),
@@ -211,7 +283,6 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Title Section
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
           child: Column(
@@ -238,7 +309,6 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
           ),
         ),
 
-        // Search Bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Container(
@@ -266,7 +336,6 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
           ),
         ),
 
-        // Suggested Header
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
           child: Text(
@@ -280,7 +349,6 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
           ),
         ),
 
-        // University List
         Expanded(
           child: _buildUniversityList(),
         ),
@@ -358,7 +426,11 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
 
   Widget _buildUniversityCard(UniversityModel university, bool isSelected) {
     return GestureDetector(
-      onTap: () => _selectUniversity(university),
+      onTap: () {
+        setState(() {
+          _selectedUniversity = university;
+        });
+      },
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         padding: const EdgeInsets.all(16),
@@ -372,7 +444,6 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
         ),
         child: Row(
           children: [
-            // University Logo Placeholder
             Container(
               width: 56,
               height: 56,
@@ -396,7 +467,6 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
             ),
             const SizedBox(width: 16),
             
-            // University Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,7 +493,6 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
               ),
             ),
             
-            // Selection Indicator
             Icon(
               isSelected ? Icons.check_circle : Icons.check_circle_outline,
               color: isSelected ? AppColors.primary : Colors.transparent,
@@ -452,7 +521,16 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
             height: 56,
             child: ElevatedButton(
               onPressed: _selectedUniversity != null
-                  ? () => _selectUniversity(_selectedUniversity!)
+                  ? () async {
+                await _selectUniversity(_selectedUniversity!);
+
+                if (mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  );
+                }
+              }
                   : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -463,18 +541,18 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
                 ),
                 disabledBackgroundColor: AppColors.textGray.withOpacity(0.3),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
+                  Text(
                     'Continue',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward, size: 20),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward, size: 20),
                 ],
               ),
             ),
@@ -482,7 +560,7 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
           const SizedBox(height: 16),
           GestureDetector(
             onTap: () {
-              // Show request to add university dialog
+              _showRequestUniversityDialog();
             },
             child: Text(
               "Can't find your university? Request to add",
@@ -492,6 +570,67 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRequestUniversityDialog() {
+    final nameController = TextEditingController();
+    final cityController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Request University'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'University Name',
+                hintText: 'e.g., Stanford University',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: cityController,
+              decoration: const InputDecoration(
+                labelText: 'City',
+                hintText: 'e.g., Stanford',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isNotEmpty && cityController.text.isNotEmpty) {
+                final firebaseService = FirebaseService();
+                await firebaseService.createUniversity({
+                  'name': nameController.text,
+                  'city': cityController.text,
+                  'state': 'Unknown',
+                  'country': 'India',
+                  'isPending': true,
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('University request submitted!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                _loadUniversities();
+              }
+            },
+            child: const Text('Submit'),
           ),
         ],
       ),

@@ -20,6 +20,7 @@ class RoomDetailScreen extends StatefulWidget {
 }
 
 class _RoomDetailScreenState extends State<RoomDetailScreen> {
+  bool _localReviewAdded = false;
   late RoomModel _currentRoom;
   int _selectedRating = 0;
   final TextEditingController _commentController = TextEditingController();
@@ -30,33 +31,34 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   void initState() {
     super.initState();
     _currentRoom = widget.room;
-    _fetchRoomDetails();
+
   }
 
-  Future<void> _fetchRoomDetails() async {
-    setState(() => _isLoadingDetails = true);
-    try {
-      final response = await ApiService.dio.get('/rooms/${_currentRoom.id}');
-      if (response.statusCode == 200) {
-        setState(() {
-          _currentRoom = RoomModel.fromJson(response.data);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load room details: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingDetails = false);
-      }
-    }
-  }
+  // Future<void> _fetchRoomDetails() async {
+  //   setState(() => _isLoadingDetails = true);
+  //   try {
+  //     final response = await ApiService.dio.get('/rooms/${_currentRoom.id}');
+  //     if (response.statusCode == 200) {
+  //       setState(() {
+  //         _currentRoom = RoomModel.fromJson(response.data);
+  //       });
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Failed to load room details: $e')),
+  //       );
+  //     }
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _isLoadingDetails = false);
+  //     }
+  //   }
+  // }
 
   Future<void> _submitReview() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
     if (authProvider.currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please login to submit a review')),
@@ -71,32 +73,73 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       return;
     }
 
+    final commentText = _commentController.text.trim();
+    final ratingValue = _selectedRating;
+
     setState(() => _isSubmittingReview = true);
+
     try {
       final response = await ApiService.dio.post(
         '/rooms/${_currentRoom.id}/reviews',
         data: {
-          'rating': _selectedRating,
-          'comment': _commentController.text.trim().isNotEmpty ? _commentController.text.trim() : null,
+          'rating': ratingValue,
+          'comment': commentText.isNotEmpty ? commentText : null,
         },
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+
+        /// CREATE LOCAL REVIEW (OPTIMISTIC UPDATE)
+        final newReview = RoomReview(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userId: authProvider.currentUser!.id,
+          userName: authProvider.currentUser!.name,
+          comment: commentText,
+          rating: ratingValue.toDouble(),
+          createdAt: DateTime.now(),
+        );
+
+        setState(() {
+
+          /// 🔥 ensure mutable list (prevents unmodifiable error)
+          final List<RoomReview> updatedReviews = List<RoomReview>.from(_currentRoom.reviews);
+
+          /// ADD REVIEW TO TOP
+          updatedReviews.insert(0, newReview);
+
+          /// RECALCULATE AVERAGE RATING SAFELY
+          double avg = 0;
+          if (updatedReviews.isNotEmpty) {
+            avg = updatedReviews
+                .map((r) => r.rating)
+                .reduce((a, b) => a + b) / updatedReviews.length;
+          }
+
+          /// UPDATE ROOM MODEL (DO NOT MUTATE ORIGINAL)
+          _currentRoom = _currentRoom.copyWith(
+            reviews: updatedReviews,
+            rating: avg,
+          );
+
+          /// RESET FORM
+          _selectedRating = 0;
+          _commentController.clear();
+        });
+
+        /// 🚫 Prevent API refresh from overwriting local review
+        _localReviewAdded = true;
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Review submitted successfully!')),
         );
-        _selectedRating = 0;
-        _commentController.clear();
-        await _fetchRoomDetails();
       }
-    } catch (e) {
+    }catch (e) {
+      print("REVIEW ERROR => $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to submit review: $e')),
+        SnackBar(content: Text(e.toString())),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isSubmittingReview = false);
-      }
+      if (mounted) setState(() => _isSubmittingReview = false);
     }
   }
 
@@ -120,9 +163,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _isLoadingDetails
-          ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
+      body: CustomScrollView(
               slivers: [
                 // App Bar with Image
                 SliverAppBar(
@@ -577,7 +618,9 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   }
 
   Widget _buildReviewCard(RoomReview review) {
-    final date = DateFormat('MMM d, yyyy').format(review.createdAt);
+    final dateStr = review.createdAt != null 
+        ? DateFormat('MMM d, yyyy').format(review.createdAt!)
+        : 'Recently';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -603,7 +646,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        review.userId.isEmpty ? 'Unknown user' : 'User ${review.userId.length >= 8 ? review.userId.substring(0, 8) : review.userId}',
+                        review.userName.isNotEmpty ? review.userName : (review.userId.isEmpty ? 'Unknown user' : 'User ${review.userId.length >= 8 ? review.userId.substring(0, 8) : review.userId}'),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -632,9 +675,9 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          if (review.comment != null && review.comment!.isNotEmpty) ...[
+          if (review.comment.isNotEmpty) ...[
             Text(
-              review.comment!,
+              review.comment,
               style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.textDark,
@@ -643,7 +686,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             const SizedBox(height: 8),
           ],
           Text(
-            date,
+            dateStr,
             style: const TextStyle(
               fontSize: 11,
               color: AppColors.textGray,

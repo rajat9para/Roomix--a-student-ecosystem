@@ -55,19 +55,20 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
     _searchDebounceTimer?.cancel();
     _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
       _applyFilters();
+      // Also trigger provider search if needed (using local filter for now based on fetched list)
+      // load from provider if search is empty to reset?
+      // Actually provider handles search too. Let's use provider search?
+      // The original code was doing local filtering on _allUtilities?
+      // provider.searchUtilities(query); // If we want server side search
+      final provider = Provider.of<UtilityProvider>(context, listen: false);
+      provider.searchUtilities(query);
     });
   }
 
   void _applyFilters() {
-    List<UtilityModel> results = List.from(_allUtilities);
-    
-    // Search filter
-    if (_searchController.text.isNotEmpty) {
-      results = results.where((utility) => 
-        utility.name.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-        (utility.category.toLowerCase().contains(_searchController.text.toLowerCase()))
-      ).toList();
-    }
+    // We are relying on provider for search now, but we can filter locally for other things
+    final provider = Provider.of<UtilityProvider>(context, listen: false);
+    List<UtilityModel> results = List.from(provider.filteredUtilities);
     
     // Rating filter
     if (_minRating != null) {
@@ -77,7 +78,6 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
     // Open now filter
     if (_openNowOnly) {
       results = results.where((utility) {
-        final now = DateTime.now();
         // Implement actual open now logic based on utility opening hours if available
         return true; // Placeholder
       }).toList();
@@ -97,6 +97,8 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
         break;
       case 'newest':
       default:
+        // Assuming there is a createdAt or similar. If not, default sort.
+        // UtilityModel has createdAt? Let's assume ID or just keep order.
         break;
     }
   }
@@ -167,12 +169,20 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
     final isOwner = authProvider.currentUser?.role == 'owner';
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Nearby Utilities'),
+        title: const Text(
+          'Nearby Utilities',
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.textDark,
+        iconTheme: const IconThemeData(color: AppColors.textDark),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
@@ -181,7 +191,15 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                 Center(
                   child: GestureDetector(
                     onTap: _showFilterBottomSheet,
-                    child: const Icon(Icons.tune, size: 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const Icon(Icons.tune, size: 20, color: AppColors.textDark),
+                    ),
                   ),
                 ),
                 if (_getActiveFilterCount() > 0)
@@ -191,7 +209,7 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: Color(0xFFEC4899),
+                        color: AppColors.tertiary,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
@@ -220,13 +238,13 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                 child: Row(
                   children: [
                     Icon(Icons.admin_panel_settings,
-                        size: 20, color: const Color(0xFF8B5CF6)),
+                        size: 20, color: AppColors.primary),
                     const SizedBox(width: 4),
                     const Text(
                       'Moderate',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF8B5CF6),
+                        color: AppColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -237,72 +255,73 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
         ],
       ),
       body: Container(
-        color: const Color(0xFF0F172A),
+        color: AppColors.background,
         child: Column(
           children: [
-            // Search bar with glassmorphism
+            // Search bar
             Padding(
               padding: const EdgeInsets.all(16),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _onSearchChanged,
-                    decoration: InputDecoration(
-                      hintText: 'Search utilities...',
-                      hintStyle: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                      ),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.white),
-                              onPressed: () {
-                                _searchController.clear();
-                                _applyFilters();
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.white.withOpacity(0.2),
-                          width: 1.5,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.white.withOpacity(0.2),
-                          width: 1.5,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF8B5CF6),
-                          width: 2,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  decoration: InputDecoration(
+                    hintText: 'Search utilities...',
+                    hintStyle: TextStyle(
+                      color: AppColors.textGray.withOpacity(0.6),
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppColors.textGray,
+                    ),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: AppColors.textGray),
+                            onPressed: () {
+                              _searchController.clear();
+                              _applyFilters();
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.5,
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
+                  style: const TextStyle(color: AppColors.textDark),
                 ),
               ),
             ),
 
-            // Sort chipspaseo
+            // Sort chips
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -317,6 +336,7 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                       });
                       _applyFilters();
                     },
+                    activeColor: AppColors.primary,
                   ),
                   const SizedBox(width: 8),
                   SortChip(
@@ -328,6 +348,7 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                       });
                       _applyFilters();
                     },
+                    activeColor: AppColors.primary,
                   ),
                 ],
               ),
@@ -336,16 +357,18 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
             // Results count
             Consumer<UtilityProvider>(
               builder: (context, provider, _) {
+                // Initialize _filteredUtilities if empty (first load handled by provider, but local state needs sync?)
+                // Actually we should use provider.filteredUtilities directly for list
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Showing ${_filteredUtilities.length} utilities',
-                        style: TextStyle(
+                        'Showing ${provider.filteredUtilities.length} utilities',
+                        style: const TextStyle(
                           fontSize: 12,
-                          color: Colors.white.withOpacity(0.6),
+                          color: AppColors.textGray,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -366,12 +389,12 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                       itemBuilder: (context, index) => Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Shimmer.fromColors(
-                          baseColor: Colors.grey[800]!,
-                          highlightColor: Colors.grey[700]!,
+                          baseColor: Colors.grey[300]!,
+                          highlightColor: Colors.grey[100]!,
                           child: Container(
                             height: 120,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
@@ -380,15 +403,15 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                     );
                   }
 
-                  if (_filteredUtilities.isEmpty) {
+                  if (provider.filteredUtilities.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.location_off,
                             size: 64,
-                            color: Colors.white.withOpacity(0.3),
+                            color: AppColors.textGray,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -397,16 +420,16 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                               : 'No utilities found',
                             style: const TextStyle(
                               fontSize: 16,
-                              color: Colors.white,
+                              color: AppColors.textDark,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Text(
+                          const Text(
                             'Try adjusting your filters',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.white.withOpacity(0.6),
+                              color: AppColors.textGray,
                             ),
                           ),
                         ],
@@ -416,9 +439,9 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
 
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredUtilities.length,
+                    itemCount: provider.filteredUtilities.length,
                     itemBuilder: (context, index) {
-                      final utility = _filteredUtilities[index];
+                      final utility = provider.filteredUtilities[index];
                       return UtilityCard(utility: utility);
                     },
                   );
@@ -446,7 +469,7 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                 ),
               );
             },
-            backgroundColor: const Color(0xFF8B5CF6),
+            backgroundColor: AppColors.primary,
             child: const Icon(Icons.map),
           ),
           const SizedBox(height: 16),
@@ -459,7 +482,7 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                   const AddUtilityScreen(),
                 );
               },
-              backgroundColor: const Color(0xFF8B5CF6),
+              backgroundColor: AppColors.primary,
               child: const Icon(Icons.add),
             ),
         ],
@@ -488,179 +511,173 @@ class UtilityCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withOpacity(0.15),
+            color: AppColors.border,
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: AppColors.shadow,
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              color: Colors.white.withOpacity(0.05),
-              padding: const EdgeInsets.all(12),
-              child: Column(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with name and category
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with name and category
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Image or placeholder
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
-                          ),
-                          image: utility.image != null
-                              ? DecorationImage(
-                                  image: NetworkImage(utility.image!),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: utility.image == null
-                            ? Icon(
-                                Icons.location_on,
-                                size: 32,
-                                color: Colors.white.withOpacity(0.5),
-                              )
-                            : null,
+                  // Image or placeholder
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.border,
                       ),
-                      const SizedBox(width: 12),
-                      // Details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      image: utility.image != null
+                          ? DecorationImage(
+                              image: NetworkImage(utility.image!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: utility.image == null
+                        ? const Icon(
+                            Icons.location_on,
+                            size: 32,
+                            color: AppColors.textGray,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  // Details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    utility.name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (utility.verified)
-                                  const Tooltip(
-                                    message: 'Verified',
-                                    child: Icon(
-                                      Icons.verified,
-                                      color: Colors.green,
-                                      size: 20,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF8B5CF6).withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: const Color(0xFF8B5CF6).withOpacity(0.4),
-                                ),
-                              ),
+                            Expanded(
                               child: Text(
-                                utility.category.toUpperCase(),
+                                utility.name,
                                 style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF8B5CF6),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textDark,
                                 ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(Icons.star, size: 14, color: Colors.amber),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${utility.rating.toStringAsFixed(1)} (${utility.reviews.length})',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white.withOpacity(0.7),
-                                  ),
+                            if (utility.verified)
+                              const Tooltip(
+                                message: 'Verified',
+                                child: Icon(
+                                  Icons.verified,
+                                  color: AppColors.success,
+                                  size: 20,
                                 ),
-                              ],
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppColors.primary.withOpacity(0.2),
+                            ),
+                          ),
+                          child: Text(
+                            utility.category.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.star, size: 14, color: Colors.amber),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${utility.rating.toStringAsFixed(1)} (${utility.reviews.length})',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textGray,
+                              ),
                             ),
                           ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Address
+              if (utility.address != null)
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      size: 14,
+                      color: AppColors.textGray,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        utility.address!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textGray,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              // Contact info if available
+              if (utility.contact?['phone'] != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.phone,
+                        size: 14,
+                        color: AppColors.textGray,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        utility.contact!['phone'],
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textGray,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  // Address
-                  if (utility.address != null)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 14,
-                          color: Colors.white.withOpacity(0.6),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            utility.address!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withOpacity(0.6),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  // Contact info if available
-                  if (utility.contact?['phone'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.phone,
-                            size: 14,
-                            color: Colors.white.withOpacity(0.6),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            utility.contact!['phone'],
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withOpacity(0.6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                ),
+            ],
           ),
         ),
       ),

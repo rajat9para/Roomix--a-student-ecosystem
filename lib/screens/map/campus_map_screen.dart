@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -69,19 +68,45 @@ class _CampusMapScreenState extends State<CampusMapScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textDark),
+        ),
+        title: const Text(
+          'Campus Map',
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MapSettingsScreen()),
+              );
+            },
+            icon: const Icon(Icons.settings_outlined, color: AppColors.primary),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           // Map background
           _buildMapBackground(),
 
-          // Top navigation and search
-          _buildTopBar(),
+          // Search bar
+          _buildSearchBar(),
 
           // Filter chips
           _buildFilterChips(),
 
-          // Map markers and clusters
+          // Map markers
           _buildMapMarkers(),
 
           // Bottom sheet for marker details
@@ -97,24 +122,26 @@ class _CampusMapScreenState extends State<CampusMapScreen>
   Widget _buildMapBackground() {
     return Consumer<MapProvider>(
       builder: (context, mapProvider, _) {
-        final markers = mapProvider.filteredMarkers.length > 20
-            ? mapProvider.filteredMarkers.take(20).toList()
-            : mapProvider.filteredMarkers;
-
         final mapUrl = mapProvider.getMapImageUrl(width: 1200, height: 1600);
 
         // If provider reports map unavailable or an explicit error, show a message UI
         if (mapProvider.mapUnavailable || (mapProvider.mapError != null && mapProvider.mapError!.isNotEmpty)) {
-          final message = mapProvider.mapUnavailable ? 'MapMyIndia API key not configured' : (mapProvider.mapError ?? 'Map error');
+          final message = mapProvider.mapUnavailable ? 'Map API key not configured' : (mapProvider.mapError ?? 'Map error');
           return Container(
-            color: AppColors.darkBackground,
+            color: AppColors.background,
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Icon(
+                    Icons.map_outlined,
+                    size: 64,
+                    color: AppColors.textGray.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     message,
-                    style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 16),
+                    style: const TextStyle(color: AppColors.textGray, fontSize: 16),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton(
@@ -124,6 +151,9 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                         MaterialPageRoute(builder: (_) => const MapSettingsScreen()),
                       );
                     },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                    ),
                     child: const Text('Configure API Key'),
                   ),
                 ],
@@ -135,19 +165,19 @@ class _CampusMapScreenState extends State<CampusMapScreen>
         return Stack(
           fit: StackFit.expand,
           children: [
-            // If the provider returned an asset path (placeholder), show it via Image.asset
+            // Map image
             mapUrl.startsWith('http')
                 ? CachedNetworkImage(
                     imageUrl: mapUrl,
                     fit: BoxFit.cover,
                     placeholder: (context, _) => Container(
-                      color: AppColors.darkBackground,
+                      color: AppColors.background,
                       child: const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                        child: CircularProgressIndicator(color: AppColors.primary),
                       ),
                     ),
                     errorWidget: (context, _, __) => Container(
-                      color: AppColors.darkBackground,
+                      color: AppColors.background,
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -155,27 +185,21 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                             Text(
                               'Map failed to load',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: AppColors.textGray,
                                 fontSize: 14,
                               ),
                             ),
                             const SizedBox(height: 8),
                             ElevatedButton(
-                                onPressed: () {
-                                  context.read<MapProvider>().clearMapError();
-                                  setState(() {});
-                                },
-                                child: const Text('Retry')),
-                            const SizedBox(height: 8),
-                            TextButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const MapSettingsScreen()),
-                                  );
-                                },
-                                child: const Text('Open map settings'))
+                              onPressed: () {
+                                context.read<MapProvider>().clearMapError();
+                                setState(() {});
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                              ),
+                              child: const Text('Retry'),
+                            ),
                           ],
                         ),
                       ),
@@ -185,107 +209,52 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                     mapUrl,
                     fit: BoxFit.cover,
                   ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withOpacity(0.55),
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.3),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-            ),
           ],
         );
       },
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildSearchBar() {
     return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              // Back button
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => Navigator.pop(context),
-                    borderRadius: BorderRadius.circular(12),
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Search bar
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Search locations...',
-                          hintStyle: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                          ),
-                          border: InputBorder.none,
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          prefixIconConstraints: const BoxConstraints(
-                            minWidth: 40,
-                            minHeight: 40,
-                          ),
-                        ),
-                        onChanged: (query) {
-                          context.read<MapProvider>().searchMarkers(query);
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+      top: 16,
+      left: 16,
+      right: 16,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _searchController,
+          style: const TextStyle(color: AppColors.textDark),
+          decoration: InputDecoration(
+            hintText: 'Search locations...',
+            hintStyle: TextStyle(
+              color: AppColors.textGray.withOpacity(0.5),
+            ),
+            border: InputBorder.none,
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 40,
+              minHeight: 40,
+            ),
           ),
+          onChanged: (query) {
+            context.read<MapProvider>().searchMarkers(query);
+          },
         ),
       ),
     );
@@ -293,7 +262,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
 
   Widget _buildFilterChips() {
     return Positioned(
-      top: 100,
+      top: 80,
       left: 0,
       right: 0,
       child: Consumer<MapProvider>(
@@ -318,23 +287,24 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                         ),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? category == MarkerCategory.pg
-                                  ? const Color(0xFF3B82F6)
-                                  : category == MarkerCategory.mess
-                                      ? const Color(0xFF10B981)
-                                      : category == MarkerCategory.service
-                                          ? const Color(0xFFF59E0B)
-                                          : category == MarkerCategory.event
-                                              ? const Color(0xFF8B5CF6)
-                                              : const Color(0xFF06B6D4)
-                              : Colors.white.withOpacity(0.1),
+                              ? AppColors.primary
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: isSelected
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.3),
+                                ? AppColors.primary
+                                : AppColors.border,
                             width: 1,
                           ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.primary.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -363,7 +333,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                                               ? 'Events'
                                               : 'Utilities',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: isSelected ? Colors.white : AppColors.textDark,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -393,14 +363,14 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                 children: [
                   Icon(
                     Icons.location_off_rounded,
-                    color: Colors.white.withOpacity(0.5),
+                    color: AppColors.textGray.withOpacity(0.5),
                     size: 48,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No locations found',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: AppColors.textGray.withOpacity(0.5),
                       fontSize: 16,
                     ),
                   ),
@@ -415,16 +385,6 @@ class _CampusMapScreenState extends State<CampusMapScreen>
     );
   }
 
-  @Deprecated('Markers are now handled by MapMyIndia SDK')
-  Widget _buildMarkerPin(MapMarkerModel marker) {
-    return const SizedBox.shrink();
-  }
-
-  @Deprecated('Markers are now handled by MapMyIndia SDK')
-  Widget _buildClusterPin(MapCluster cluster) {
-    return const SizedBox.shrink();
-  }
-
   Widget _buildMarkerDetailsSheet() {
     return Consumer<MapProvider>(
       builder: (context, mapProvider, _) {
@@ -435,213 +395,209 @@ class _CampusMapScreenState extends State<CampusMapScreen>
           bottom: 0,
           left: 0,
           right: 0,
-          child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(24),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x1A000000),
+                  blurRadius: 20,
+                  offset: Offset(0, -5),
+                ),
+              ],
             ),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.95),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 16),
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Handle
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12, bottom: 16),
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+
+                // Close button
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _showMarkerDetails = false);
+                        context.read<MapProvider>().selectMarker('');
+                      },
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: AppColors.textGray,
                       ),
                     ),
+                  ),
+                ),
 
-                    // Close button
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() => _showMarkerDetails = false);
-                            context.read<MapProvider>().selectMarker('');
-                          },
-                          child: const Icon(
-                            Icons.close_rounded,
-                            color: AppColors.textDark,
+                // Marker details
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image
+                      if (marker.imageUrl != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: CachedNetworkImage(
+                            imageUrl: marker.imageUrl!,
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      else
+                        Container(
+                          height: 200,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.location_on,
+                              size: 64,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      const SizedBox(height: 16),
 
-                    // Marker details
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      // Title
+                      Row(
                         children: [
-                          // Image
-                          if (marker.imageUrl != null)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: CachedNetworkImage(
-                                imageUrl: marker.imageUrl!,
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          else
-                            Container(
-                              height: 200,
-                              decoration: BoxDecoration(
-                                color: marker.getCategoryColor()
-                                    .withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  marker.getCategoryIcon(),
-                                  size: 64,
-                                  color: marker.getCategoryColor(),
-                                ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              marker.getCategoryName(),
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          const SizedBox(height: 16),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        marker.title,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
 
-                          // Title
-                          Row(
+                      // Description
+                      if (marker.description != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            marker.description!,
+                            style: TextStyle(
+                              color: AppColors.textGray,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+
+                      // Address
+                      if (marker.address != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: marker.getCategoryColor()
-                                      .withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
+                              const Icon(
+                                Icons.location_on_rounded,
+                                color: AppColors.primary,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
                                 child: Text(
-                                  marker.getCategoryName(),
+                                  marker.address!,
                                   style: TextStyle(
-                                    color: marker.getCategoryColor(),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textGray,
+                                    fontSize: 13,
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            marker.title,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
-                            ),
-                          ),
+                        ),
 
-                          // Description
-                          if (marker.description != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                marker.description!,
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 14,
-                                ),
+                      // Coordinates
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.navigation_rounded,
+                              color: AppColors.primary,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${marker.latitude.toStringAsFixed(4)}, ${marker.longitude.toStringAsFixed(4)}',
+                              style: TextStyle(
+                                color: AppColors.textGray,
+                                fontSize: 13,
                               ),
                             ),
-
-                          // Address
-                          if (marker.address != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.location_on_rounded,
-                                    color: AppColors.primary,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      marker.address!,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          // Coordinates
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.navigation_rounded,
-                                  color: AppColors.primary,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${marker.latitude.toStringAsFixed(4)}, ${marker.longitude.toStringAsFixed(4)}',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // Action button
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                // Navigate to detail screen based on category
-                                Navigator.pop(context);
-                              },
-                              icon: const Icon(Icons.arrow_forward_rounded),
-                              label: const Text('View Details'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: marker.getCategoryColor(),
-                                foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 20),
+
+                      // Action button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // Navigate to detail screen based on category
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(Icons.arrow_forward_rounded),
+                          label: const Text('View Details'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         );
@@ -661,7 +617,8 @@ class _CampusMapScreenState extends State<CampusMapScreen>
             onPressed: () {
               setState(() => _showFilters = !_showFilters);
             },
-            backgroundColor: AppColors.primary,
+            backgroundColor: Colors.white,
+            foregroundColor: AppColors.primary,
             child: const Icon(Icons.tune_rounded),
           ),
           const SizedBox(height: 12),

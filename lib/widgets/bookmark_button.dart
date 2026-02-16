@@ -79,13 +79,11 @@ class _BookmarkButtonState extends State<BookmarkButton>
                     .removeBookmarkByItemId(widget.itemId);
               } else {
                 await bookmarksProvider.addBookmark(
-                  itemId: widget.itemId,
-                  type: widget.type,
+                  itemid: widget.itemId,
+                  itemtype: widget.type,
                   itemTitle: widget.itemTitle,
                   itemImage: widget.itemImage,
                   itemPrice: widget.itemPrice,
-                  rating: widget.rating,
-                  metadata: widget.metadata,
                 );
               }
 

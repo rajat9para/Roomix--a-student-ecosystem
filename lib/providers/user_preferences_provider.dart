@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:roomix/models/university_model.dart';
 import 'package:roomix/services/api_service.dart';
 import 'package:roomix/utils/storage_util.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class UserPreferencesProvider extends ChangeNotifier {
   final StorageUtil _storageUtil = StorageUtil();
   UniversityModel? _selectedUniversity;
+
   bool _isOnboardingComplete = false;
   bool _isLoading = false;
   double? _campusLat;
@@ -74,12 +77,23 @@ class UserPreferencesProvider extends ChangeNotifier {
   /// Set selected university and save to storage
   Future<void> setSelectedUniversity(UniversityModel university) async {
     _selectedUniversity = university;
-    notifyListeners();
 
-    try {
-      await _storageUtil.saveSelectedUniversity(university.id);
-    } catch (e) {
-      debugPrint('Error saving university selection: $e');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'selected_university',
+      jsonEncode(university.toJson()),
+    );
+
+    notifyListeners();
+  }
+
+  Future<void> loadSelectedUniversity() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('selected_university');
+
+    if (data != null) {
+      _selectedUniversity = UniversityModel.fromJson(jsonDecode(data));
+      notifyListeners();
     }
   }
 

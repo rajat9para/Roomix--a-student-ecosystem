@@ -87,15 +87,15 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
     
     // Budget filter
     filtered = filtered.where((m) => 
-      m.preferences.budget.min >= _selectedMinBudget &&
-      m.preferences.budget.max <= _selectedMaxBudget
+      (m.preferences['budget']?['min'] ?? 0) >= _selectedMinBudget &&
+      (m.preferences['budget']?['max'] ?? 100000) <= _selectedMaxBudget
     ).toList();
 
     // Lifestyle filter
     if (_selectedLifestyle.isNotEmpty) {
       filtered = filtered.where((m) =>
         _selectedLifestyle.every((lifestyle) =>
-          m.preferences.lifestyle.contains(lifestyle)
+          (m.preferences['lifestyle'] as List<dynamic>?)?.contains(lifestyle) ?? false
         )
       ).toList();
     }
@@ -211,18 +211,20 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'Find Room Partner',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: AppColors.textDark,
           ),
         ),
         centerTitle: true,
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: AppColors.background,
         elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.primary),
         actions: [
           Consumer<RoommateProvider>(
             builder: (context, provider, _) => Padding(
@@ -244,16 +246,16 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
+                          color: AppColors.border,
                           width: 1.5,
                         ),
                       ),
                       padding: const EdgeInsets.all(2),
                       child: CircleAvatar(
-                        backgroundColor: Colors.white.withOpacity(0.2),
+                        backgroundColor: AppColors.primaryLight,
                         child: Icon(
                           provider.profileComplete ? Icons.person : Icons.add,
-                          color: Colors.white,
+                          color: AppColors.primary,
                         ),
                       ),
                     ),
@@ -265,7 +267,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(
-                          color: Color(0xFFEC4899),
+                          color: AppColors.error,
                           shape: BoxShape.circle,
                         ),
                         child: Text(
@@ -285,14 +287,14 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
         ],
       ),
       body: Container(
-        color: const Color(0xFF0F172A),
+        color: AppColors.background,
         child: Consumer<RoommateProvider>(
           builder: (context, provider, _) {
             if (provider.isLoading) {
               return const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    Color(0xFF8B5CF6),
+                    AppColors.primary,
                   ),
                 ),
               );
@@ -306,7 +308,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
               children: [
                 // Tab bar
                 Container(
-                  color: const Color(0xFF1E293B),
+                  color: Colors.white,
                   child: Row(
                     children: [
                       Expanded(
@@ -318,7 +320,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                               border: Border(
                                 bottom: BorderSide(
                                   color: _selectedTabIndex == 0
-                                      ? const Color(0xFF8B5CF6)
+                                      ? AppColors.primary
                                       : Colors.transparent,
                                   width: 2.5,
                                 ),
@@ -331,8 +333,8 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                   color: _selectedTabIndex == 0
-                                      ? const Color(0xFF8B5CF6)
-                                      : Colors.white.withOpacity(0.6),
+                                      ? AppColors.primary
+                                      : AppColors.textGray,
                                 ),
                               ),
                             ),
@@ -348,7 +350,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                               border: Border(
                                 bottom: BorderSide(
                                   color: _selectedTabIndex == 1
-                                      ? const Color(0xFF8B5CF6)
+                                      ? AppColors.primary
                                       : Colors.transparent,
                                   width: 2.5,
                                 ),
@@ -364,18 +366,18 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
                                       color: _selectedTabIndex == 1
-                                          ? const Color(0xFF8B5CF6)
-                                          : Colors.white.withOpacity(0.6),
+                                          ? AppColors.primary
+                                          : AppColors.textGray,
                                     ),
                                   ),
                                   if (provider.conversations.any((c) => c.unreadCount > 0))
                                     Positioned(
-                                      right: 10,
-                                      top: 8,
+                                      right: -20,
+                                      top: -8,
                                       child: Container(
                                         padding: const EdgeInsets.all(4),
                                         decoration: const BoxDecoration(
-                                          color: Color(0xFFEC4899),
+                                          color: AppColors.error,
                                           shape: BoxShape.circle,
                                         ),
                                         child: Text(
@@ -420,16 +422,16 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF8B5CF6).withOpacity(0.1),
+              color: AppColors.primaryLight,
               border: Border.all(
-                color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                color: AppColors.primary.withOpacity(0.3),
               ),
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Icon(
               Icons.person_add_rounded,
               size: 64,
-              color: Color(0xFF8B5CF6),
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 24),
@@ -438,7 +440,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: AppColors.textDark,
             ),
           ),
           const SizedBox(height: 12),
@@ -447,16 +449,14 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.white.withOpacity(0.6),
+              color: AppColors.textGray,
             ),
           ),
           const SizedBox(height: 32),
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-              ),
+              gradient: AppColors.primaryGradient,
             ),
             child: Material(
               color: Colors.transparent,
@@ -504,14 +504,14 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
             Icon(
               Icons.person_search_rounded,
               size: 64,
-              color: Colors.white.withOpacity(0.2),
+              color: AppColors.textGray.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
             Text(
               'No matches found',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.white.withOpacity(0.6),
+                color: AppColors.textGray,
               ),
             ),
           ],
@@ -521,63 +521,47 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
 
     return Column(
       children: [
-        // Search bar with glassmorphism
+        // Search bar
         Padding(
           padding: const EdgeInsets.all(12),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                decoration: InputDecoration(
-                  hintText: 'Search profiles...',
-                  hintStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: Colors.white.withOpacity(0.7),
-                  ),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, color: Colors.white),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {});
-                          },
-                        )
-                      : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Colors.white.withOpacity(0.2),
-                      width: 1.5,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Colors.white.withOpacity(0.2),
-                      width: 1.5,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF8B5CF6),
-                      width: 2,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.08),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
-                style: const TextStyle(color: Colors.white),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'Search profiles...',
+                hintStyle: TextStyle(
+                  color: AppColors.textGray,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: AppColors.primary,
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: AppColors.textGray),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
               ),
             ),
           ),
@@ -626,20 +610,20 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
+                      color: AppColors.border,
                       width: 1.5,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.tune, size: 16, color: Colors.white),
+                      const Icon(Icons.tune, size: 16, color: AppColors.textGray),
                       const SizedBox(width: 4),
                       Text(
                         'Filter${_getActiveFilterCount() > 0 ? ' (' + _getActiveFilterCount().toString() + ')' : ''}',
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Colors.white,
+                          color: AppColors.textGray,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -674,21 +658,17 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
     final compatibility = match.compatibility ?? _calculateCompatibility(match, provider.myProfile);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.background,
-              AppColors.background.withOpacity(0.8),
-            ],
+          border: Border.all(
+            color: AppColors.border.withOpacity(0.5),
           ),
         ),
         child: Column(
@@ -725,7 +705,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.2),
+                        color: AppColors.primaryLight,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -760,7 +740,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
               match.bio,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.textGray,
               ),
@@ -774,7 +754,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -792,21 +772,13 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  provider.selectedConversationId == match.userId
-                      ? SmoothNavigation.push(
-                          context,
-                          ChatScreen(
-                            conversationId: match.userId,
-                            userName: match.userName,
-                          ),
-                        )
-                      : SmoothNavigation.push(
-                          context,
-                          ChatScreen(
-                            conversationId: match.userId,
-                            userName: match.userName,
-                          ),
-                        );
+                  SmoothNavigation.push(
+                    context,
+                    ChatScreen(
+                      conversationId: match.userId,
+                      userName: match.userName,
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -882,17 +854,16 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.background,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.border,
-            width: 1,
+            color: AppColors.border.withOpacity(0.5),
           ),
         ),
         child: Row(
           children: [
             CircleAvatar(
-              backgroundColor: AppColors.primary.withOpacity(0.3),
+              backgroundColor: AppColors.primaryLight,
               child: Text(
                 conversation.userName.isNotEmpty
                     ? conversation.userName[0].toUpperCase()
@@ -921,7 +892,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                     conversation.lastMessage,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textGray,
                     ),
@@ -933,7 +904,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: const BoxDecoration(
-                  color: Colors.red,
+                  color: AppColors.error,
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -954,13 +925,14 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
   void _showProfileMenu(BuildContext context, RoommateProvider provider) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.edit_rounded),
+              leading: const Icon(Icons.edit_rounded, color: AppColors.primary),
               title: const Text('Edit Profile'),
               onTap: () {
                 Navigator.pop(context);
@@ -971,8 +943,8 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_rounded, color: Colors.red),
-              title: const Text('Delete Profile', style: TextStyle(color: Colors.red)),
+              leading: const Icon(Icons.delete_rounded, color: AppColors.error),
+              title: const Text('Delete Profile', style: TextStyle(color: AppColors.error)),
               onTap: () {
                 Navigator.pop(context);
                 _showDeleteConfirmation(context, provider);
@@ -988,12 +960,13 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Profile?'),
-        content: const Text('This action cannot be undone.'),
+        backgroundColor: Colors.white,
+        title: const Text('Delete Profile?', style: TextStyle(color: AppColors.textDark)),
+        content: const Text('This action cannot be undone.', style: TextStyle(color: AppColors.textGray)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textGray)),
           ),
           TextButton(
             onPressed: () async {
@@ -1001,7 +974,7 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
               Navigator.pop(context);
               setState(() {});
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),

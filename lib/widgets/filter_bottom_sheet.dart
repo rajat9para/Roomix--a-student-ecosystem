@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'package:roomix/constants/app_colors.dart';
 
 class FilterBottomSheet extends StatefulWidget {
@@ -65,191 +64,170 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Color(0x1A000000),
             blurRadius: 20,
-            offset: const Offset(0, -5),
+            offset: Offset(0, -5),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            color: const Color(0xFF0F172A).withOpacity(0.95),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: AppColors.border.withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Stack(
               children: [
-                // Header with glassmorphism
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Colors.white.withOpacity(0.1),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(20),
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: Text(
-                          widget.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.close,
-                              color: Colors.white.withOpacity(0.7),
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Divider
                 Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(2),
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
-
-                // Filter sections - scrollable
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ...widget.sections.map((section) => _buildFilterSection(section)).toList(),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Action buttons with glassmorphism
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: Colors.white.withOpacity(0.1),
-                        width: 1,
+                Positioned(
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: AppColors.textGray,
+                        size: 20,
                       ),
                     ),
-                    color: const Color(0xFF0F172A).withOpacity(0.8),
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      // Reset button
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            widget.onReset();
-                            setState(() {
-                              selectedFilters.clear();
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
-                                width: 1.5,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Reset',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Apply button with gradient
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            widget.onApply(selectedFilters);
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF8B5CF6),
-                                  Color(0xFFEC4899),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF8B5CF6).withOpacity(0.4),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 5),
-                                ),
-                              ],
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'Apply',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ),
+          
+          // Divider
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Filter sections - scrollable
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...widget.sections.map((section) => _buildFilterSection(section)).toList(),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+
+          // Action buttons
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: AppColors.border.withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+              color: AppColors.background,
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Reset button
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      widget.onReset();
+                      setState(() {
+                        selectedFilters.clear();
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: AppColors.border,
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Reset',
+                          style: TextStyle(
+                            color: AppColors.textGray,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Apply button
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      widget.onApply(selectedFilters);
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Apply',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -274,7 +252,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
         Text(
           section.title,
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.textDark,
             fontSize: 14,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.3,
@@ -312,12 +290,12 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected 
-                  ? const Color(0xFF8B5CF6).withOpacity(0.3)
-                  : Colors.transparent,
+                  ? AppColors.primaryLight
+                  : Colors.white,
               border: Border.all(
                 color: isSelected 
-                    ? const Color(0xFF8B5CF6)
-                    : Colors.white.withOpacity(0.2),
+                    ? AppColors.primary
+                    : AppColors.border,
                 width: 1.5,
               ),
               borderRadius: BorderRadius.circular(8),
@@ -330,10 +308,10 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                   height: 18,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF8B5CF6)
+                        ? AppColors.primary
                         : Colors.transparent,
                     border: isSelected ? null : Border.all(
-                      color: Colors.white.withOpacity(0.4),
+                      color: AppColors.border,
                       width: 1.5,
                     ),
                     borderRadius: BorderRadius.circular(4),
@@ -347,8 +325,8 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                   option,
                   style: TextStyle(
                     color: isSelected 
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.7),
+                        ? AppColors.primary
+                        : AppColors.textGray,
                     fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
@@ -377,7 +355,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
             Text(
               '₹${currentMin.toStringAsFixed(0)}',
               style: const TextStyle(
-                color: Color(0xFF8B5CF6),
+                color: AppColors.primary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -385,7 +363,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
             Text(
               '₹${currentMax.toStringAsFixed(0)}',
               style: const TextStyle(
-                color: Color(0xFF8B5CF6),
+                color: AppColors.primary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -403,8 +381,8 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
               selectedFilters[maxKey] = values.end;
             });
           },
-          activeColor: const Color(0xFF8B5CF6),
-          inactiveColor: Colors.white.withOpacity(0.1),
+          activeColor: AppColors.primary,
+          inactiveColor: AppColors.border,
         ),
       ],
     );
@@ -427,12 +405,12 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isSelected
-                  ? const Color(0xFF8B5CF6).withOpacity(0.2)
-                  : Colors.transparent,
+                  ? AppColors.primaryLight
+                  : Colors.white,
               border: Border.all(
                 color: isSelected
-                    ? const Color(0xFF8B5CF6)
-                    : Colors.white.withOpacity(0.2),
+                    ? AppColors.primary
+                    : AppColors.border,
                 width: 1.5,
               ),
               borderRadius: BorderRadius.circular(8),
@@ -446,8 +424,8 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF8B5CF6)
-                          : Colors.white.withOpacity(0.4),
+                          ? AppColors.primary
+                          : AppColors.border,
                       width: 2,
                     ),
                   ),
@@ -458,7 +436,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                             height: 10,
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Color(0xFF8B5CF6),
+                              color: AppColors.primary,
                             ),
                           ),
                         )
@@ -468,7 +446,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                 Text(
                   option,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: isSelected ? AppColors.primary : AppColors.textGray,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),

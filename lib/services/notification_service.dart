@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -207,8 +209,20 @@ class NotificationService {
   }
 
   Future<void> _saveFCMTokenToBackend(String token) async {
-    // TODO: Implement API call to save FCM token to backend
-    debugPrint('Save FCM token to backend: $token');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+          'fcmToken': token,
+          'lastTokenUpdate': Timestamp.now(),
+        });
+        debugPrint('FCM token saved to backend: $token');
+      } catch (e) {
+        debugPrint('Error saving FCM token to backend: $e');
+      }
+    } else {
+      debugPrint('User not logged in, cannot save FCM token');
+    }
   }
 
   /// Get notification history

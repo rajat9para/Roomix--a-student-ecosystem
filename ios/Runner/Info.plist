@@ -46,6 +46,19 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	
+	<!-- Google Sign-In URL Scheme -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.857963052155-l3p0asr9vup977q8e5ouuoovv8maek6q</string>
+			</array>
+		</dict>
+	</array>
+	
 	<!-- Location permissions for maps -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs location access to show nearby rooms on the map.</string>

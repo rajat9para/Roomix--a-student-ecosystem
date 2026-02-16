@@ -27,7 +27,7 @@ class _RoomScreenState extends State<RoomScreen> {
   
   // Search and Filter state
   final TextEditingController _searchController = TextEditingController();
-  String _selectedSort = 'newest'; // newest, price_low, price_high, rating, distance
+  String _selectedSort = 'newest';
   Timer? _searchDebounce;
   
   // Filter options
@@ -68,8 +68,8 @@ class _RoomScreenState extends State<RoomScreen> {
     });
 
     try {
-      final roomsData = await ApiService.getRooms();
-      _allRooms = roomsData.map((room) => RoomModel.fromJson(room)).toList();
+      // ApiService.getRooms() already returns List<RoomModel>
+      _allRooms = await ApiService.getRooms();
       
       // Calculate price range from fetched rooms
       if (_allRooms.isNotEmpty) {
@@ -123,7 +123,7 @@ class _RoomScreenState extends State<RoomScreen> {
         })
         .toList();
 
-    // Amenities filter - room must have all selected amenities
+    // Amenities filter
     if (_selectedAmenities.isNotEmpty) {
       filtered = filtered
           .where((room) {
@@ -171,7 +171,6 @@ class _RoomScreenState extends State<RoomScreen> {
         break;
       case 'newest':
       default:
-        // Assuming rooms are returned in newest first order from API
         break;
     }
   }
@@ -297,10 +296,11 @@ class _RoomScreenState extends State<RoomScreen> {
     _authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Find Your Room'),
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.textDark,
         elevation: 0,
         actions: [
           Badge(
@@ -314,46 +314,48 @@ class _RoomScreenState extends State<RoomScreen> {
         ],
       ),
       body: Container(
-        color: AppColors.darkBackground,
+        color: Colors.white,
         child: Column(
           children: [
-            // Search bar
             Padding(
               padding: const EdgeInsets.all(16),
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AppColors.textDark),
                 decoration: InputDecoration(
                   hintText: 'Search rooms...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                  prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.6)),
+                  hintStyle: const TextStyle(color: AppColors.textGray),
+                  prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          color: Colors.white.withOpacity(0.6),
-                          onPressed: () {
-                            _searchController.clear();
-                            _applyFilters();
-                          },
-                        )
+                    icon: const Icon(Icons.clear),
+                    color: AppColors.textGray,
+                    onPressed: () {
+                      _searchController.clear();
+                      _applyFilters();
+                    },
+                  )
                       : null,
+
+                  filled: true,
+                  fillColor: Colors.white,
+
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                    borderSide: BorderSide(color: AppColors.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                    borderSide: BorderSide(color: AppColors.border),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
                   ),
                 ),
               ),
             ),
-
-            // Sort chips
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -401,10 +403,7 @@ class _RoomScreenState extends State<RoomScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // Results count
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Align(
@@ -412,17 +411,14 @@ class _RoomScreenState extends State<RoomScreen> {
                 child: Text(
                   '${_filteredRooms.length} room${_filteredRooms.length != 1 ? 's' : ''} found',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: AppColors.textGray,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // Room list or loading/empty state
             Expanded(
               child: _isLoading
                   ? const LoadingIndicator()
@@ -456,35 +452,22 @@ class _RoomScreenState extends State<RoomScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.search_off,
-            size: 80,
-            color: Colors.white.withOpacity(0.3),
-          ),
+          Icon(Icons.search_off, size: 80, color: Colors.white.withOpacity(0.3)),
           const SizedBox(height: 16),
           Text(
             _searchController.text.isNotEmpty ? 'No rooms match your search' : 'No rooms found',
-            style: const TextStyle(
-              fontSize: 18,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Try adjusting your filters or search criteria',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.6),
-            ),
-          ),
+          Text('Try adjusting your filters or search criteria',
+              style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6))),
           const SizedBox(height: 24),
           GestureDetector(
             onTap: () {
               _searchController.clear();
               setState(() {
-                _selectedCategories = {'Single Room', 'Double Room', 'Triple Room', 'PG', 'Hostel'};
-                _selectedAmenities = {'WiFi', 'AC', 'Attached Bathroom', 'Parking', 'Meals'};
+                _selectedCategories.clear();
+                _selectedAmenities.clear();
                 _selectedMinPrice = _minPrice;
                 _selectedMaxPrice = _maxPrice;
                 _minRating = null;
@@ -494,18 +477,11 @@ class _RoomScreenState extends State<RoomScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                ),
+                gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)]),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'Clear All Filters',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: const Text('Clear All Filters',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -518,47 +494,23 @@ class _RoomScreenState extends State<RoomScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 80,
-            color: Colors.white.withOpacity(0.3),
-          ),
+          Icon(Icons.error_outline, size: 80, color: Colors.white.withOpacity(0.3)),
           const SizedBox(height: 16),
-          const Text(
-            'Error loading rooms',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          const Text('Error loading rooms',
+              style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            _errorMessage,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.6),
-            ),
-          ),
+          Text(_errorMessage, textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6))),
           const SizedBox(height: 24),
           GestureDetector(
             onTap: _fetchRooms,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                ),
+                gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)]),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'Retry',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: const Text('Retry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
             ),
           ),
         ],

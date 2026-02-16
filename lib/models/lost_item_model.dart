@@ -4,6 +4,7 @@ class LostItemModel {
   final String description;
   final String status;
   final DateTime date;
+  final String? location;
   final String? image;
   final String contact;
   final String? userId;
@@ -19,6 +20,7 @@ class LostItemModel {
     required this.description,
     required this.status,
     required this.date,
+    this.location,
     this.image,
     required this.contact,
     this.userId,
@@ -36,6 +38,7 @@ class LostItemModel {
       description: json['description'],
       status: json['status'],
       date: DateTime.parse(json['date']),
+      location: json['location'],
       image: json['image'],
       contact: json['contact'],
       userId: json['user']?['_id'] ?? json['user'],
@@ -54,6 +57,7 @@ class LostItemModel {
       'description': description,
       'status': status,
       'date': date.toIso8601String(),
+      'location': location,
       'image': image,
       'contact': contact,
       'user': userId,

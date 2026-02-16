@@ -211,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _formatTime(message.createdAt),
+                  _formatTime(message.createdAt ?? DateTime.now()),
                     style: TextStyle(
                       color: isCurrentUser
                           ? Colors.white.withOpacity(0.7)

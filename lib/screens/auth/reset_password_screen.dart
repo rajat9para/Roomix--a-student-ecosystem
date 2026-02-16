@@ -119,8 +119,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     try {
       final authProvider = context.read<AuthProvider>();
       await authProvider.resetPassword(
-        email: widget.email,
-        resetToken: widget.resetToken,
+        token: widget.resetToken,
         newPassword: password,
       );
 
@@ -235,7 +234,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   obscureText: !_showPassword,
                   onChanged: _checkPasswordStrength,
                   decoration: InputDecoration(
-                    hintText: 'Enter your new password',
+                    hintText: '',
                     filled: true,
                     fillColor: Colors.grey[100],
                     border: OutlineInputBorder(
@@ -296,7 +295,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   controller: _confirmPasswordController,
                   obscureText: !_showConfirmPassword,
                   decoration: InputDecoration(
-                    hintText: 'Confirm your new password',
+                    hintText: '',
                     filled: true,
                     fillColor: Colors.grey[100],
                     border: OutlineInputBorder(

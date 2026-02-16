@@ -21,27 +21,14 @@ class UtilityProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   final List<String> categories = [
-    'All',
-    'medical',
-    'grocery',
-    'xerox',
-    'stationary',
-    'pharmacy',
-    'cafe',
-    'laundry',
-    'salon',
-    'bank',
-    'atm',
-    'restaurant',
-    'other'
+    'All', 'medical', 'grocery', 'xerox', 'stationary', 'pharmacy', 
+    'cafe', 'laundry', 'salon', 'bank', 'atm', 'restaurant', 'other'
   ];
 
-  // Get all utilities
   Future<void> fetchUtilities({String? category}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
     try {
       final utilities = await ApiService.getUtilities(category: category);
       _utilities = utilities;
@@ -56,19 +43,16 @@ class UtilityProvider with ChangeNotifier {
     }
   }
 
-  // Get utilities by category
   Future<void> getUtilitiesByCategory(String category) async {
     _isLoading = true;
     _errorMessage = null;
     _selectedCategory = category == 'All' ? null : category;
     notifyListeners();
-
     try {
       if (category == 'All') {
         _filteredUtilities = _utilities;
       } else {
-        final utilities = await ApiService.getUtilitiesByCategory(category);
-        _filteredUtilities = utilities;
+        _filteredUtilities = await ApiService.getUtilitiesByCategory(category);
       }
       _isLoading = false;
       notifyListeners();
@@ -80,24 +64,13 @@ class UtilityProvider with ChangeNotifier {
     }
   }
 
-  // Get utilities within radius
-  Future<void> getUtilitiesNearby(
-    double latitude,
-    double longitude, {
-    int radiusMeters = 5000,
-    String? category,
-  }) async {
+  Future<void> getUtilitiesNearby(double latitude, double longitude, {int radiusMeters = 5000, String? category}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
     try {
-      final utilities = await ApiService.getUtilitiesNearby(
-        latitude,
-        longitude,
-        radiusMeters: radiusMeters,
-        category: category,
-      );
+      // Call with correct signature - positional args for lat/lng
+      final utilities = await ApiService.getUtilitiesNearby(latitude, longitude);
       _utilities = utilities;
       _filteredUtilities = utilities;
       _isLoading = false;
@@ -110,19 +83,13 @@ class UtilityProvider with ChangeNotifier {
     }
   }
 
-  // Search utilities
   Future<void> searchUtilities(String query) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
     try {
-      if (query.isEmpty) {
-        _filteredUtilities = _utilities;
-      } else {
-        final utilities = await ApiService.searchUtilities(query);
-        _filteredUtilities = utilities;
-      }
+      final utilities = query.isEmpty ? _utilities : await ApiService.searchUtilities(query);
+      _filteredUtilities = utilities;
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -133,15 +100,12 @@ class UtilityProvider with ChangeNotifier {
     }
   }
 
-  // Get single utility
   Future<void> getUtility(String id) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
     try {
-      final utility = await ApiService.getUtility(id);
-      _selectedUtility = utility;
+      _selectedUtility = await ApiService.getUtility(id);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -152,38 +116,23 @@ class UtilityProvider with ChangeNotifier {
     }
   }
 
-  // Create utility
-  Future<UtilityModel> createUtility({
-    required String name,
-    required String category,
-    required double latitude,
-    required double longitude,
-    String? address,
-    Map<String, dynamic>? contact,
-    String? description,
-    String? image,
-    List<String>? tags,
-    Map<String, dynamic>? operatingHours,
+  Future<UtilityModel?> createUtility({
+    required String name, required String category,
+    required double latitude, required double longitude,
+    String? address, String? description, String? phone,
   }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
     try {
       final utility = await ApiService.createUtility(
-        name: name,
-        category: category,
-        latitude: latitude,
-        longitude: longitude,
-        address: address,
-        contact: contact,
-        description: description,
-        image: image,
-        tags: tags,
-        operatingHours: operatingHours,
+        name: name, category: category, latitude: latitude, longitude: longitude,
+        address: address, description: description, phone: phone,
       );
-      _utilities.add(utility);
-      _filteredUtilities.add(utility);
+      if (utility != null) {
+        _utilities.add(utility);
+        _filteredUtilities.add(utility);
+      }
       _isLoading = false;
       notifyListeners();
       return utility;
@@ -195,45 +144,25 @@ class UtilityProvider with ChangeNotifier {
     }
   }
 
-  // Update utility
-  Future<UtilityModel> updateUtility(
-    String id, {
-    String? name,
-    String? category,
-    double? latitude,
-    double? longitude,
-    String? address,
-    Map<String, dynamic>? contact,
-    String? description,
-    String? image,
-    List<String>? tags,
-    Map<String, dynamic>? operatingHours,
+  Future<UtilityModel?> updateUtility(String id, {
+    String? name, String? category, double? latitude, double? longitude,
+    String? address, String? description, String? phone,
   }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
     try {
-      final utility = await ApiService.updateUtility(
-        id,
-        name: name,
-        category: category,
-        latitude: latitude,
-        longitude: longitude,
-        address: address,
-        contact: contact,
-        description: description,
-        image: image,
-        tags: tags,
-        operatingHours: operatingHours,
+      final utility = await ApiService.updateUtility(id,
+        name: name, category: category, latitude: latitude, longitude: longitude,
+        address: address, description: description, phone: phone,
       );
-
-      final index = _utilities.indexWhere((u) => u.id == id);
-      if (index != -1) {
-        _utilities[index] = utility;
-        _filteredUtilities = _utilities;
+      if (utility != null) {
+        final index = _utilities.indexWhere((u) => u.id == id);
+        if (index != -1) {
+          _utilities[index] = utility;
+          _filteredUtilities = List.from(_utilities);
+        }
       }
-
       _isLoading = false;
       notifyListeners();
       return utility;
@@ -245,12 +174,10 @@ class UtilityProvider with ChangeNotifier {
     }
   }
 
-  // Delete utility
   Future<void> deleteUtility(String id) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
     try {
       await ApiService.deleteUtility(id);
       _utilities.removeWhere((u) => u.id == id);
@@ -265,33 +192,24 @@ class UtilityProvider with ChangeNotifier {
     }
   }
 
-  // Add review to utility
-  Future<UtilityModel> addReview(
-    String utilityId, {
-    required int rating,
-    String? comment,
-  }) async {
+  Future<UtilityModel?> addReview(String utilityId, {required int rating, String? comment}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
     try {
-      final utility = await ApiService.addReviewToUtility(
-        utilityId,
-        rating: rating,
-        comment: comment,
+      // Get current user ID from Firebase
+      final userId = 'current_user'; // Replace with actual user ID
+      final utility = await ApiService.addReviewToUtility(utilityId,
+        userId: userId, rating: rating.toDouble(), comment: comment ?? '',
       );
-
-      final index = _utilities.indexWhere((u) => u.id == utilityId);
-      if (index != -1) {
-        _utilities[index] = utility;
-        _filteredUtilities = _utilities;
+      if (utility != null) {
+        final index = _utilities.indexWhere((u) => u.id == utilityId);
+        if (index != -1) {
+          _utilities[index] = utility;
+          _filteredUtilities = List.from(_utilities);
+        }
+        if (_selectedUtility?.id == utilityId) _selectedUtility = utility;
       }
-
-      if (_selectedUtility?.id == utilityId) {
-        _selectedUtility = utility;
-      }
-
       _isLoading = false;
       notifyListeners();
       return utility;
@@ -303,134 +221,59 @@ class UtilityProvider with ChangeNotifier {
     }
   }
 
-  // Clear selected utility
-  void clearSelected() {
-    _selectedUtility = null;
-    notifyListeners();
-  }
+  void clearSelected() { _selectedUtility = null; notifyListeners(); }
+  void clearFilters() { _selectedCategory = null; _filteredUtilities = _utilities; notifyListeners(); }
 
-  // Clear filters
-  void clearFilters() {
-    _selectedCategory = null;
-    _filteredUtilities = _utilities;
-    notifyListeners();
-  }
-
-  // Admin: Get all utilities (including unverified)
   Future<void> getAllUtilitiesAdmin() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
+    _isLoading = true; _errorMessage = null; notifyListeners();
     try {
-      final utilities = await ApiService.getAllUtilitiesAdmin();
-      _utilities = utilities;
-      _filteredUtilities = utilities;
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
-      _isLoading = false;
-      notifyListeners();
-      rethrow;
-    }
+      _utilities = await ApiService.getAllUtilitiesAdmin();
+      _filteredUtilities = _utilities;
+      _isLoading = false; notifyListeners();
+    } catch (e) { _errorMessage = e.toString(); _isLoading = false; notifyListeners(); rethrow; }
   }
 
-  // Admin: Get pending utilities
   Future<void> getPendingUtilitiesAdmin() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
+    _isLoading = true; _errorMessage = null; notifyListeners();
     try {
-      final utilities = await ApiService.getPendingUtilities();
-      _utilities = utilities;
-      _filteredUtilities = utilities;
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
-      _isLoading = false;
-      notifyListeners();
-      rethrow;
-    }
+      _utilities = await ApiService.getPendingUtilities();
+      _filteredUtilities = _utilities;
+      _isLoading = false; notifyListeners();
+    } catch (e) { _errorMessage = e.toString(); _isLoading = false; notifyListeners(); rethrow; }
   }
 
-  // Admin: Verify utility
-  Future<UtilityModel> verifyUtility(String utilityId) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
+  Future<UtilityModel?> verifyUtility(String utilityId) async {
+    _isLoading = true; _errorMessage = null; notifyListeners();
     try {
       final utility = await ApiService.verifyUtility(utilityId);
-
-      final index = _utilities.indexWhere((u) => u.id == utilityId);
-      if (index != -1) {
-        _utilities[index] = utility;
-        _filteredUtilities = _utilities;
+      if (utility != null) {
+        final index = _utilities.indexWhere((u) => u.id == utilityId);
+        if (index != -1) { _utilities[index] = utility; _filteredUtilities = List.from(_utilities); }
+        if (_selectedUtility?.id == utilityId) _selectedUtility = utility;
       }
-
-      if (_selectedUtility?.id == utilityId) {
-        _selectedUtility = utility;
-      }
-
-      _isLoading = false;
-      notifyListeners();
-      return utility;
-    } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
-      _isLoading = false;
-      notifyListeners();
-      rethrow;
-    }
+      _isLoading = false; notifyListeners(); return utility;
+    } catch (e) { _errorMessage = e.toString(); _isLoading = false; notifyListeners(); rethrow; }
   }
 
-  // Admin: Reject utility
-  Future<UtilityModel> rejectUtility(String utilityId, {String? reason}) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
+  Future<UtilityModel?> rejectUtility(String utilityId, {String? reason}) async {
+    _isLoading = true; _errorMessage = null; notifyListeners();
     try {
       final utility = await ApiService.rejectUtility(utilityId, reason: reason);
-
-      final index = _utilities.indexWhere((u) => u.id == utilityId);
-      if (index != -1) {
-        _utilities[index] = utility;
-        _filteredUtilities = _utilities;
+      if (utility != null) {
+        final index = _utilities.indexWhere((u) => u.id == utilityId);
+        if (index != -1) { _utilities[index] = utility; _filteredUtilities = List.from(_utilities); }
+        if (_selectedUtility?.id == utilityId) _selectedUtility = utility;
       }
-
-      if (_selectedUtility?.id == utilityId) {
-        _selectedUtility = utility;
-      }
-
-      _isLoading = false;
-      notifyListeners();
-      return utility;
-    } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
-      _isLoading = false;
-      notifyListeners();
-      rethrow;
-    }
+      _isLoading = false; notifyListeners(); return utility;
+    } catch (e) { _errorMessage = e.toString(); _isLoading = false; notifyListeners(); rethrow; }
   }
 
-  // Convert utilities to map markers for campus map integration
   List<MapMarkerModel> getUtilitiesAsMapMarkers() {
-    return _filteredUtilities
-        .where((utility) => utility.verified) // Only show verified utilities on map
-        .map((utility) => MapMarkerModel(
-              id: utility.id,
-              title: utility.name,
-              description: utility.description,
-              latitude: utility.latitude,
-              longitude: utility.longitude,
-              category: MarkerCategory.utility,
-              imageUrl: utility.image,
-              address: utility.address,
-              metadata: utility,
-            ))
-        .toList();
+    return _filteredUtilities.where((u) => u.verified).map((u) => MapMarkerModel(
+      id: u.id, title: u.name, description: u.description,
+      latitude: u.latitude, longitude: u.longitude,
+      category: MarkerCategory.utility, imageUrl: u.image,
+      address: u.address, metadata: u,
+    )).toList();
   }
 }

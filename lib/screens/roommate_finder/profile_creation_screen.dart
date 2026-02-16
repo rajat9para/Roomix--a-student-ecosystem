@@ -91,12 +91,14 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       if (provider.myProfile != null) {
         _bioController.text = provider.myProfile!.bio;
         _minBudgetController.text =
-            provider.myProfile!.preferences.budget.min.toInt().toString();
+            (provider.myProfile!.preferences['budget']?['min'] ?? 5000).toInt().toString();
         _maxBudgetController.text =
-            provider.myProfile!.preferences.budget.max.toInt().toString();
+            (provider.myProfile!.preferences['budget']?['max'] ?? 50000).toInt().toString();
         _selectedInterests.addAll(provider.myProfile!.interests);
-        _selectedLocations.addAll(provider.myProfile!.preferences.location);
-        _selectedLifestyle.addAll(provider.myProfile!.preferences.lifestyle);
+        _selectedLocations.addAll(
+            (provider.myProfile!.preferences['location'] as List<dynamic>?)?.cast<String>() ?? []);
+        _selectedLifestyle.addAll(
+            (provider.myProfile!.preferences['lifestyle'] as List<dynamic>?)?.cast<String>() ?? []);
         _selectedGender = provider.myProfile!.gender;
         _selectedYear = provider.myProfile!.courseYear.isNotEmpty
             ? provider.myProfile!.courseYear

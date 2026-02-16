@@ -55,7 +55,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('OTP sent to your email address'),
+          content: Text('Password reset email sent. Please check your inbox.'),
           backgroundColor: Color(0xFF10B981),
         ),
       );
@@ -84,14 +84,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     try {
       final authProvider = context.read<AuthProvider>();
       final resetToken = await authProvider.verifyResetOtp(email, otp);
-     // Guard navigation: check if resetToken is valid
-     if (resetToken == null || resetToken.isEmpty) {
-       setState(() {
-         _errorMessage = 'Failed to verify OTP. Please try again.';
-       });
-       return;
-     }
-
+      
+      if (resetToken == null || resetToken.isEmpty) {
+        setState(() {
+          _errorMessage = 'Failed to verify OTP. Please try again.';
+        });
+        return;
+      }
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -154,9 +153,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Enter your email address to receive an OTP to reset your password',
-                  style: TextStyle(
+                Text(
+                  _isEmailSent
+                      ? 'Enter the 6-digit code sent to your email'
+                      : 'Enter your email address to receive a reset code',
+                  style: const TextStyle(
                     fontSize: 14,
                     color: Colors.grey,
                   ),
@@ -170,7 +171,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     labelText: 'Email Address',
-                    hintText: 'example@university.edu',
+                    hintText: '',
                     labelStyle: TextStyle(
                       color: _isEmailSent ? Colors.grey : Colors.black54,
                       fontWeight: FontWeight.w500,
@@ -216,7 +217,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         textAlign: TextAlign.center,
                         maxLength: 6,
                         decoration: InputDecoration(
-                          hintText: '000000',
+                          hintText: '',
                           filled: true,
                           fillColor: Colors.grey[100],
                           border: OutlineInputBorder(
@@ -233,11 +234,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerRight,
-                         child: TextButton(
-                           // Disable button while loading to prevent duplicate requests
-                           onPressed: authProvider.isLoading ? null : _handleSendOtp,
+                        child: TextButton(
+                          onPressed: authProvider.isLoading ? null : _handleSendOtp,
                           child: const Text(
-                            'Resend OTP',
+                            'Resend Code',
                             style: TextStyle(
                               color: Color(0xFF3B82F6),
                               fontWeight: FontWeight.w600,
@@ -246,6 +246,32 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                       ),
                     ],
+                  ),
+
+                // Google Sign-In Note
+                if (!_isEmailSent)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[100]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'If you signed up with Google, please use Google Sign-In on the login screen.',
+                            style: TextStyle(
+                              color: Colors.blue[800],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
                 const SizedBox(height: 20),
@@ -305,7 +331,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             ),
                           )
                         : Text(
-                            _isEmailSent ? 'Verify OTP' : 'Send OTP',
+                            _isEmailSent ? 'Verify Code' : 'Send Reset Code',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,

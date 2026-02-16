@@ -4,6 +4,7 @@ class MarketItemModel {
   final String? description;
   final double price;
   final String condition;
+  final String? category;
   final String? image;
   final String sellerContact;
   final String sellerName;
@@ -20,6 +21,7 @@ class MarketItemModel {
     this.description,
     required this.price,
     required this.condition,
+    this.category,
     this.image,
     required this.sellerContact,
     required this.sellerName,
@@ -38,6 +40,7 @@ class MarketItemModel {
       description: json['description'],
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
       condition: json['condition'],
+      category: json['category'],
       image: json['image'],
       sellerContact: json['sellerContact'],
       sellerName: json['sellerName'],
@@ -57,6 +60,7 @@ class MarketItemModel {
       'description': description,
       'price': price,
       'condition': condition,
+      'category': category,
       'image': image,
       'sellerContact': sellerContact,
       'sellerName': sellerName,

@@ -2,19 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 import 'package:roomix/firebase_options.dart' as firebase_options;
 import 'package:roomix/providers/auth_provider.dart';
 import 'package:roomix/providers/notification_provider.dart';
 import 'package:roomix/providers/user_preferences_provider.dart';
+import 'package:roomix/providers/owner_listings_provider.dart';
+import 'package:roomix/providers/bookmarks_provider.dart';
+import 'package:roomix/providers/roommate_provider.dart';
 import 'package:roomix/screens/splash_screen.dart';
-import 'package:roomix/services/api_service.dart';
 import 'package:roomix/services/notification_service.dart';
 import 'package:roomix/providers/utility_provider.dart';
 import 'package:roomix/providers/map_provider.dart';
 import 'package:roomix/services/platform_service.dart';
 import 'package:roomix/constants/app_colors.dart';
+import 'package:roomix/providers/market_provider.dart';
+import 'package:roomix/providers/lost_found_provider.dart';
+import 'package:roomix/screens/auth/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,13 +31,6 @@ void main() async {
     );
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
-  }
-  
-  // Initialize API Service
-  try {
-    ApiService.initialize();
-  } catch (e) {
-    debugPrint('API Service initialization error: $e');
   }
   
   // Initialize Notification Service (Mobile only)
@@ -70,9 +68,16 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => UserPreferencesProvider()),
+        ChangeNotifierProvider(
+          create: (_) => UserPreferencesProvider()..loadSelectedUniversity(),
+        ),
         ChangeNotifierProvider(create: (_) => UtilityProvider()),
         ChangeNotifierProvider(create: (_) => MapProvider()),
+        ChangeNotifierProvider(create: (_) => OwnerListingsProvider()),
+        ChangeNotifierProvider(create: (_) => BookmarksProvider()),
+        ChangeNotifierProvider(create: (_) => RoommateProvider()),
+        ChangeNotifierProvider(create: (_) => MarketProvider()),
+        ChangeNotifierProvider(create: (_) => LostFoundProvider()),
       ],
       child: const RoomixApp(),
     ),
@@ -85,12 +90,13 @@ class RoomixApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+
       title: 'Roomix',
       debugShowCheckedModeBanner: false,
       theme: _buildLightTheme(),
-      darkTheme: _buildDarkTheme(),
-      themeMode: ThemeMode.system,
-      home: const SplashScreen(),
+      // darkTheme: _buildDarkTheme(), // Removed - Light theme only
+      themeMode: ThemeMode.light, // Force light theme always
+      home: const AuthGate(),
     );
   }
 

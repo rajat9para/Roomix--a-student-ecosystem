@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:roomix/providers/auth_provider.dart';
@@ -9,9 +11,13 @@ import 'package:roomix/screens/events/events_screen.dart';
 import 'package:roomix/screens/bookmarks/bookmarks_screen.dart';
 import 'package:roomix/screens/profile/profile_screen.dart';
 import 'package:roomix/screens/owner/add_room_screen.dart';
+import 'package:roomix/screens/onboarding/university_selection_screen.dart';
+import 'package:roomix/screens/messages/messages_screen.dart';
 import 'package:roomix/constants/app_colors.dart';
 import 'package:roomix/models/user_model.dart';
 import 'package:roomix/services/api_service.dart';
+import 'package:roomix/services/loaction_service.dart';
+import 'package:roomix/models/room_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +28,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  File? _profileImage;
+  String? _currentCity;
   bool _isLoading = true;
   List<dynamic> _featuredPGs = [];
   List<dynamic> _campusUpdates = [];
@@ -30,6 +38,39 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _loadProfileImage();
+    _getUserCity();
+  }
+
+  Future<void> _getUserCity() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // if already saved → use it
+    final savedCity = prefs.getString('user_city');
+    if (savedCity != null) {
+      setState(() => _currentCity = savedCity);
+      print("CITY FROM CACHE => $savedCity");
+      return;
+    }
+
+    // otherwise fetch GPS
+    final city = await LocationService.getCurrentCity();
+
+    if (city != null && mounted) {
+      await prefs.setString('user_city', city);
+      setState(() => _currentCity = city);
+      print("CITY FROM GPS => $city");
+    }
+  }
+  Future<void> _loadProfileImage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString('profile_image_path');
+
+    if (path != null && File(path).existsSync()) {
+      setState(() {
+        _profileImage = File(path);
+      });
+    }
   }
 
   Future<void> _loadData() async {
@@ -75,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 1:
         return const BookmarksScreen();
       case 2:
-        return const Center(child: Text('Messages - Coming Soon'));
+        return const MessagesScreen();
       case 3:
         return const ProfileScreen();
       default:
@@ -136,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildAppBar(UserModel? user) {
     final prefs = context.watch<UserPreferencesProvider>();
     final universityName = prefs.selectedUniversity?.name ?? 'Select University';
+    final cityName = _currentCity ?? prefs.selectedUniversity?.city ?? 'Select Location';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -161,13 +203,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 2,
                 ),
               ),
-              child: Center(
-                child: Text(
-                  user?.name.substring(0, 1).toUpperCase() ?? 'U',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: _profileImage != null
+                    ? Image.file(
+                  _profileImage!,
+                  width: 44,
+                  height: 44,
+                  fit: BoxFit.cover,
+                )
+                    : Center(
+                  child: Text(
+                    prefs.selectedUniversity?.name ?? 'Select University',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
                   ),
                 ),
               ),
@@ -180,33 +232,34 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: GestureDetector(
               onTap: () {
-                // Navigate to university selection
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const UniversitySelectionScreen(isOnboarding: false),
+                  ),
+                );
               },
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Campus',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
+                    universityName,   // 👈 now university name on top
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
+
                   Row(
                     children: [
-                      Flexible(
-                        child: Text(
-                          universityName.length > 20 
-                            ? '${universityName.substring(0, 20)}...' 
-                            : universityName,
-                          style: const TextStyle(
-                            color: AppColors.textDark,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        prefs.selectedUniversity?.city ?? 'Select Location',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -419,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _featuredPGs.length,
         itemBuilder: (context, index) {
-          final pg = _featuredPGs[index];
+          final RoomModel pg = _featuredPGs[index];
           return _buildPGCard(pg);
         },
       ),
@@ -468,17 +521,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPGCard(dynamic pg) {
-    final title = pg['title'] ?? 'Unknown PG';
-    final location = pg['location'] ?? 'Unknown location';
-    final price = pg['price']?.toString() ?? '0';
-    final rating = pg['rating']?.toString() ?? '4.5';
-    final image = pg['image'];
+  Widget _buildPGCard(RoomModel pg) {
+    final title = pg.title;
+    final location = pg.location;
+    final price = pg.price.toStringAsFixed(0);
+    final rating = pg.rating.toStringAsFixed(1);
+    final image = pg.imageurl;
 
     return GestureDetector(
-      onTap: () {
-        // Navigate to PG details
-      },
+      onTap: () {},
       child: Container(
         width: 280,
         margin: const EdgeInsets.only(right: 16),
@@ -496,113 +547,55 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
             Stack(
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: image != null
-                    ? Image.network(
-                        image,
-                        height: 160,
-                        width: 280,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          height: 160,
-                          width: 280,
-                          color: Colors.grey.shade200,
-                          child: const Icon(Icons.image_not_supported),
-                        ),
-                      )
-                    : Container(
-                        height: 160,
-                        width: 280,
-                        color: Colors.grey.shade200,
-                        child: const Icon(Icons.home_work, size: 48, color: AppColors.textGray),
-                      ),
+                  child: image.isNotEmpty
+                      ? Image.network(
+                    image,
+                    height: 160,
+                    width: 280,
+                    fit: BoxFit.cover,
+                  )
+                      : Container(
+                    height: 160,
+                    width: 280,
+                    color: Colors.grey.shade200,
+                    child: const Icon(Icons.home, size: 50),
+                  ),
                 ),
-                // Rating Badge
                 Positioned(
                   top: 12,
                   right: 12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.star,
-                          color: AppColors.starColor,
-                          size: 14,
-                        ),
+                        const Icon(Icons.star, color: Colors.orange, size: 14),
                         const SizedBox(width: 4),
-                        Text(
-                          rating,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
-                          ),
-                        ),
+                        Text(rating, style: const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
                 ),
               ],
             ),
-            
-            // Content
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        '₹$price',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
+                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text(
-                    location,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textGray,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _buildAmenityChip('Wi-Fi'),
-                      const SizedBox(width: 8),
-                      _buildAmenityChip('Laundry'),
-                    ],
-                  ),
+                  Text(location, style: const TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  Text("₹$price / month",
+                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -728,6 +721,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBottomNavBar() {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final userRole = authProvider.currentUser?.role;
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -747,7 +743,8 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _buildNavItem(Icons.home_rounded, 'Home', 0),
               _buildNavItem(Icons.bookmark_outline, 'Saved', 1),
-              _buildAddButton(),
+              // Only show add button for owners/admins, NOT students
+              if (userRole != 'student') _buildAddButton(),
               _buildNavItem(Icons.chat_bubble_outline, 'Messages', 2),
               _buildNavItem(Icons.person_outline, 'Profile', 3),
             ],

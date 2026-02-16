@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:roomix/providers/lost_found_provider.dart';
 import 'package:roomix/providers/auth_provider.dart';
-import 'package:roomix/services/api_service.dart';
 import 'package:roomix/models/lost_item_model.dart';
 import 'package:roomix/constants/app_colors.dart';
 import 'package:roomix/widgets/loading_indicator.dart';
+import 'package:roomix/screens/lost_found/report_item_screen.dart';
+import 'package:roomix/screens/lost_found/lost_item_detail_screen.dart';
+import 'package:roomix/utils/smooth_navigation.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -15,214 +18,188 @@ class LostFoundScreen extends StatefulWidget {
   State<LostFoundScreen> createState() => _LostFoundScreenState();
 }
 
-class _LostFoundScreenState extends State<LostFoundScreen> {
-  late AuthProvider _authProvider;
-  List<LostItemModel> _items = [];
-  bool _isLoading = true;
-  String _errorMessage = '';
-  String _filterStatus = 'all';
-  int _currentPage = 1;
-  int _totalPages = 1;
-  final ScrollController _scrollController = ScrollController();
+class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    _fetchItems();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabSelection);
+    
+    // Initial fetch
+    Future.microtask(() {
+      final provider = Provider.of<LostFoundProvider>(context, listen: false);
+      provider.fetchItems();
+      provider.setTab('Lost'); // Default
+    });
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
-      if (_currentPage < _totalPages) {
-        _fetchItems(page: _currentPage + 1);
-      }
-    }
-  }
-
-  Future<void> _fetchItems({int page = 1}) async {
-    if (page == 1) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = '';
-      });
-    }
-
-    try {
-      final response = await ApiService.getLostItems(page: page);
-      
-      if (response['items'] != null) {
-        final newItems = (response['items'] as List)
-            .map((e) => LostItemModel.fromJson(e))
-            .toList();
-        
-        setState(() {
-          if (page == 1) {
-            _items = newItems;
-          } else {
-            _items.addAll(newItems);
-          }
-          _currentPage = response['pagination']?['currentPage'] ?? 1;
-          _totalPages = response['pagination']?['totalPages'] ?? 1;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load items: ${e.toString()}';
-      });
-    } finally {
-      if (page == 1) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+  void _handleTabSelection() {
+    if (_tabController.indexIsChanging) {
+      final provider = Provider.of<LostFoundProvider>(context, listen: false);
+      provider.setTab(_tabController.index == 0 ? 'Lost' : 'Found');
     }
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
-  }
-
-  List<LostItemModel> _getFilteredItems() {
-    if (_filterStatus == 'all') return _items;
-    return _items.where((item) => item.status.toLowerCase() == _filterStatus.toLowerCase()).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    _authProvider = Provider.of<AuthProvider>(context);
-    final filteredItems = _getFilteredItems();
-
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'Lost & Found',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          tabs: const [
+            Tab(text: 'Lost Items'),
+            Tab(text: 'Found Items'),
+          ],
+        ),
       ),
-      body: Container(
-        color: AppColors.background,
-        child: _isLoading && _items.isEmpty
-            ? const LoadingIndicator()
-            : Column(
-                children: [
-                  // Filter Section
-                  _buildFilterSection(),
-                  const SizedBox(height: 16),
-                  
-                  // Items List
-                  Expanded(
-                    child: filteredItems.isEmpty
-                        ? _buildEmptyState()
-                        : RefreshIndicator(
-                            onRefresh: () => _fetchItems(page: 1),
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(16),
-                              itemCount: filteredItems.length + (_currentPage < _totalPages ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == filteredItems.length) {
-                                  return const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: LoadingIndicator(),
-                                  );
-                                }
-                                return _buildItemCard(filteredItems[index]);
-                              },
-                            ),
-                          ),
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.shadow,
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
-      ),
-    );
-  }
-
-  Widget _buildFilterSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          const Text(
-            'Filter:',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
+              child: TextField(
+                controller: _searchController,
+                onChanged: (val) {
+                  Provider.of<LostFoundProvider>(context, listen: false).setSearchQuery(val);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search items...',
+                  hintStyle: const TextStyle(color: AppColors.textGray),
+                  prefixIcon: const Icon(Icons.search, color: AppColors.textGray),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, color: AppColors.textGray),
+                          onPressed: () {
+                            _searchController.clear();
+                            Provider.of<LostFoundProvider>(context, listen: false).setSearchQuery('');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          _buildFilterChip('All', 'all'),
-          const SizedBox(width: 8),
-          _buildFilterChip('Lost', 'lost'),
-          const SizedBox(width: 8),
-          _buildFilterChip('Found', 'found'),
-          const SizedBox(width: 8),
-          _buildFilterChip('Claimed', 'claimed'),
+
+          // Content
+          Expanded(
+            child: Consumer<LostFoundProvider>(
+              builder: (context, provider, _) {
+                if (provider.isLoading) {
+                  return const LoadingIndicator();
+                }
+
+                if (provider.error != null) {
+                  return Center(
+                    child: Text(
+                      'Error: ${provider.error}',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  );
+                }
+
+                if (provider.filteredItems.isEmpty) {
+                  return _buildEmptyState(provider.currentTab);
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () => provider.fetchItems(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: provider.filteredItems.length,
+                    itemBuilder: (context, index) {
+                      return _buildItemCard(provider.filteredItems[index]);
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String status) {
-    return FilterChip(
-      label: Text(label),
-      selected: _filterStatus == status,
-      onSelected: (bool selected) {
-        setState(() {
-          _filterStatus = selected ? status : 'all';
-        });
-      },
-      backgroundColor: AppColors.background,
-      selectedColor: AppColors.primary,
-      labelStyle: TextStyle(
-        color: _filterStatus == status ? Colors.white : AppColors.textDark,
-        fontWeight: FontWeight.bold,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          SmoothNavigation.push(
+            context,
+            ReportItemScreen(
+              initialType: _tabController.index == 0 ? 'Lost' : 'Found',
+            ),
+          );
+        },
+        backgroundColor: _tabController.index == 0 ? Colors.red : Colors.green,
+        icon: const Icon(Icons.add_circle_outline),
+        label: Text('Report ${_tabController.index == 0 ? "Lost" : "Found"} Item'),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(String tab) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.search_off,
+          Icon(
+            tab == 'Lost' ? Icons.search_off : Icons.check_circle_outline,
             size: 80,
-            color: AppColors.textSubtle,
+            color: AppColors.textGray.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
           Text(
-            _filterStatus == 'all' ? 'No items found' : 'No ${_filterStatus.toLowerCase()} items',
-            style: TextStyle(
+            tab == 'Lost' ? 'No lost items reported' : 'No found items reported',
+            style: const TextStyle(
               fontSize: 18,
-              color: AppColors.textSubtle,
+              color: AppColors.textDark,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Check back later or report a new item',
-            style: TextStyle(
+            tab == 'Lost' 
+                ? 'Great! Only peace of mind here.' 
+                : 'Help others by reporting items you find.',
+            style: const TextStyle(
               fontSize: 14,
               color: AppColors.textGray,
             ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _fetchItems,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-            ),
-            child: const Text('Refresh'),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -230,170 +207,195 @@ class _LostFoundScreenState extends State<LostFoundScreen> {
   }
 
   Widget _buildItemCard(LostItemModel item) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.border, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Item Image
-          if (item.image != null)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: CachedNetworkImage(
-                imageUrl: item.image!,
-                height: 160,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  height: 160,
-                  color: Colors.grey[300],
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  height: 160,
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.image_not_supported, size: 40),
-                ),
-              ),
+    final isLost = item.status.toLowerCase() == 'lost';
+    final statusColor = isLost ? Colors.red : Colors.green;
+
+    return GestureDetector(
+      onTap: () {
+        SmoothNavigation.push(context, LostItemDetailScreen(item: item));
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
-          
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+          border: Border.all(
+            color: AppColors.border,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            // Image Section with Status Overlay
+            Stack(
               children: [
-                // Title and Status
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: SizedBox(
+                    height: 150,
+                    width: double.infinity,
+                    child: item.image != null
+                        ? CachedNetworkImage(
+                            imageUrl: item.image!,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(color: Colors.grey[200]),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[100],
+                              child: Icon(Icons.broken_image, color: Colors.grey[400]),
+                            ),
+                          )
+                        : Container(
+                            color: statusColor.withOpacity(0.05),
+                            child: Icon(
+                              isLost ? Icons.search : Icons.inventory_2,
+                              size: 40,
+                              color: statusColor.withOpacity(0.3),
+                            ),
+                          ),
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      ],
+                    ),
+                    child: Text(
+                      item.status.toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _buildStatusChip(item.status),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                
-                // Claim Status Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: item.claimStatus == 'Claimed' ? Colors.green.shade100 : Colors.orange.shade100,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'Claim: ${item.claimStatus}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: item.claimStatus == 'Claimed' ? Colors.green.shade700 : Colors.orange.shade700,
-                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-
-                // Description
-                if (item.description.isNotEmpty)
-                  Text(
-                    item.description,
-                    style: const TextStyle(fontSize: 13, color: AppColors.textGray),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                const SizedBox(height: 12),
-
-                // Date and Contact
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 14, color: AppColors.textGray),
-                    const SizedBox(width: 6),
-                    Text(
-                      DateFormat('MMM dd, yyyy').format(item.date),
-                      style: const TextStyle(fontSize: 12, color: AppColors.textGray),
-                    ),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.phone, size: 14, color: AppColors.textGray),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        item.contact,
-                        style: const TextStyle(fontSize: 12, color: AppColors.textGray),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                if (item.claimStatus != 'Unclaimed')
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            item.claimStatus == 'Resolved' ? Icons.check_circle : Icons.pending,
+                            size: 14,
+                            color: item.claimStatus == 'Resolved' ? Colors.green : Colors.orange,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            item.claimStatus,
+                            style: TextStyle(
+                              color: item.claimStatus == 'Resolved' ? Colors.green : Colors.orange,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                
-                // CTA
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                    ),
-                    child: const Text('View Details'),
                   ),
-                ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildStatusChip(String? status) {
-    Color chipColor;
-    Color textColor;
-    
-    switch (status?.toLowerCase()) {
-      case 'lost':
-        chipColor = AppColors.warning;
-        textColor = Colors.white;
-        break;
-      case 'found':
-        chipColor = AppColors.success;
-        textColor = Colors.white;
-        break;
-      case 'claimed':
-        chipColor = AppColors.info;
-        textColor = Colors.white;
-        break;
-      default:
-        chipColor = AppColors.textSubtle;
-        textColor = Colors.white;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: chipColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status ?? 'Unknown',
-        style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
+            // Content Section
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Location and Date
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 14, color: AppColors.textGray),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          item.location,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textGray,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.calendar_today, size: 14, color: AppColors.textGray),
+                      const SizedBox(width: 4),
+                      Text(
+                        DateFormat('MMM dd').format(item.date),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textGray,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        SmoothNavigation.push(context, LostItemDetailScreen(item: item));
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: statusColor,
+                        side: BorderSide(color: statusColor.withOpacity(0.5)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('View Details'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,83 +1,100 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// User Model matching Firebase 'users' collection fields exactly
+/// Fields: createdat, email, name, phone, role, university
 class UserModel {
   final String id;
   final String name;
   final String email;
   final String role;
-  final String? token;
+  final String? phone;
+  final String? university;
+  final DateTime? createdat;
   final String? profilePicture;
-  final Map<String, dynamic>? notificationSettings;
-  final Map<String, dynamic>? privacySettings;
   final String? course;
   final String? year;
-  final String? collegeName;
-  final String? contactNumber;
-  final double? campusLatitude;
-  final double? campusLongitude;
-  final String? campusAddress;
-  final String? selectedUniversityId;
-  final bool? isOnboardingComplete;
 
   UserModel({
     required this.id,
     required this.name,
     required this.email,
     required this.role,
-    this.token,
+    this.phone,
+    this.university,
+    this.createdat,
     this.profilePicture,
-    this.notificationSettings,
-    this.privacySettings,
     this.course,
     this.year,
-    this.collegeName,
-    this.contactNumber,
-    this.campusLatitude,
-    this.campusLongitude,
-    this.campusAddress,
-    this.selectedUniversityId,
-    this.isOnboardingComplete,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    DateTime? parseCreatedAt;
+    if (json['createdat'] != null) {
+      if (json['createdat'] is Timestamp) {
+        parseCreatedAt = (json['createdat'] as Timestamp).toDate();
+      } else if (json['createdat'] is String) {
+        parseCreatedAt = DateTime.tryParse(json['createdat']);
+      }
+    }
+
     return UserModel(
-      id: json['_id'] ?? json['id'],
-      name: json['name'],
-      email: json['email'],
-      role: json['role'],
-      token: json['token'],
+      id: json['id'] ?? json['_id'] ?? '',
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      role: json['role'] ?? 'student',
+      phone: json['phone'],
+      university: json['university'],
+      createdat: parseCreatedAt,
       profilePicture: json['profilePicture'] ?? json['photoUrl'],
-      notificationSettings: json['notificationSettings'] != null ? Map<String, dynamic>.from(json['notificationSettings']) : null,
-      privacySettings: json['privacySettings'] != null ? Map<String, dynamic>.from(json['privacySettings']) : null,
       course: json['course'],
       year: json['year'],
-      collegeName: json['collegeName'],
-      contactNumber: json['contactNumber'],
-      campusLatitude: json['campusLatitude'] != null ? (json['campusLatitude'] as num).toDouble() : null,
-      campusLongitude: json['campusLongitude'] != null ? (json['campusLongitude'] as num).toDouble() : null,
-      campusAddress: json['campusAddress'],
-      selectedUniversityId: json['selectedUniversity']?['_id'] ?? json['selectedUniversity'],
-      isOnboardingComplete: json['isOnboardingComplete'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      '_id': id,
+      'id': id,
       'name': name,
       'email': email,
       'role': role,
-      'token': token,
+      'phone': phone ?? '',
+      'university': university ?? '',
+      'createdat': createdat != null ? Timestamp.fromDate(createdat!) : Timestamp.now(),
       'profilePicture': profilePicture,
-      'notificationSettings': notificationSettings,
-      'privacySettings': privacySettings,
       'course': course,
       'year': year,
-      'collegeName': collegeName,
-      'contactNumber': contactNumber,
-      'campusLatitude': campusLatitude,
-      'campusLongitude': campusLongitude,
-      'campusAddress': campusAddress,
-      'selectedUniversity': selectedUniversityId,
-      'isOnboardingComplete': isOnboardingComplete,
     };
   }
+
+  UserModel copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? role,
+    String? phone,
+    String? university,
+    DateTime? createdat,
+    String? profilePicture,
+    String? course,
+    String? year,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      phone: phone ?? this.phone,
+      university: university ?? this.university,
+      createdat: createdat ?? this.createdat,
+      profilePicture: profilePicture ?? this.profilePicture,
+      course: course ?? this.course,
+      year: year ?? this.year,
+    );
+  }
+  
+  /// Alias for university (for backward compatibility - profile screen expects collegeName)
+  String? get collegeName => university;
+  
+  /// Alias for phone (for backward compatibility - profile screen expects contactNumber)
+  String? get contactNumber => phone;
 }

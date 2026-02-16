@@ -10,6 +10,7 @@ class AppColors {
   static const Color primaryColor = Color(0xFF0a66c2);
   static const Color primaryDark = Color(0xFF0850a0);
   static const Color primaryLight = Color(0xFFE8F3FC);
+  static const Color primaryAccent = Color(0xFF0e63be); // Added for utility screens
   
   // Secondary Colors
   static const Color secondary = Color(0xFF10B981); // Success Green

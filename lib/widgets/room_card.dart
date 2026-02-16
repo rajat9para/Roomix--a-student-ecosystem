@@ -66,7 +66,7 @@ class RoomCard extends StatelessWidget {
                             color: Colors.white.withOpacity(0.05),
                             child: const Icon(
                               Icons.image_not_supported,
-                              color: Color(0xFF8B5CF6),
+                              color: AppColors.primary,
                             ),
                           ),
                           fit: BoxFit.cover,
@@ -82,7 +82,7 @@ class RoomCard extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.8),
+                              color: AppColors.primary.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: Colors.white.withOpacity(0.3),
@@ -143,13 +143,11 @@ class RoomCard extends StatelessWidget {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                                ),
+                                color: AppColors.primary,
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                'â‚¹${room.price.toStringAsFixed(0)}/mo',
+                                '₹${room.price.toStringAsFixed(0)}/mo',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -236,17 +234,16 @@ class RoomCard extends StatelessWidget {
                                   vertical: 5,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF8B5CF6).withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
+                                  color: AppColors.primary.withOpacity(0.12),
                                   border: Border.all(
-                                    color: const Color(0xFF8B5CF6).withOpacity(0.4),
+                                    color: AppColors.primary.withOpacity(0.35),
                                   ),
                                 ),
                                 child: Text(
                                   amenity,
                                   style: const TextStyle(
                                     fontSize: 11,
-                                    color: Color(0xFF8B5CF6),
+                                    color: AppColors.primary,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -261,9 +258,7 @@ class RoomCard extends StatelessWidget {
                           child: Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                              ),
+                              color: AppColors.primary,
                             ),
                             child: Material(
                               color: Colors.transparent,

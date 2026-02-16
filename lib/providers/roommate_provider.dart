@@ -1,11 +1,12 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:roomix/models/roommate_profile_model.dart';
 import 'package:roomix/models/chat_message_model.dart';
-import 'package:roomix/services/api_service.dart';
+import 'package:roomix/services/firebase_service.dart';
 
 class RoommateProvider extends ChangeNotifier {
-  final ApiService _apiService = ApiService();
+  final FirebaseService _firebaseService = FirebaseService();
 
   // Profile state
   RoommateProfile? _myProfile;
@@ -19,7 +20,13 @@ class RoommateProvider extends ChangeNotifier {
   List<ChatMessage> _messages = [];
   List<ChatConversation> _conversations = [];
   String? _selectedConversationId;
-  Timer? _pollTimer;
+  StreamSubscription? _messagesSubscription;
+  StreamSubscription? _conversationsSubscription;
+  StreamSubscription? _profilesSubscription;
+  
+  // Polling timer for message refresh (fallback)
+  Timer? _pollingTimer;
+  bool _isPolling = false;
 
   // Getters
   RoommateProfile? get myProfile => _myProfile;
@@ -31,36 +38,84 @@ class RoommateProvider extends ChangeNotifier {
   List<ChatMessage> get messages => _messages;
   List<ChatConversation> get conversations => _conversations;
   String? get selectedConversationId => _selectedConversationId;
+  bool get isPolling => _isPolling;
 
-  // Create or update profile
+  // ==================== PROFILE OPERATIONS ====================
+
+  /// Create or update profile
   Future<void> createProfile(
     String bio,
     List<String> interests,
-    Map<String, dynamic> preferences,
-    {String? gender, String? courseYear, String? college}
-  ) async {
+    Map<String, dynamic> preferences, {
+    String? gender,
+    String? courseYear,
+    String? college,
+    String? username,
+  }) async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      final response = await _apiService.post(
-        '/roommates/profile',
-        {
+      final userId = _firebaseService.currentUserId;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Check if profile already exists
+      final existingProfile = await _firebaseService.getRoommateProfileByUserId(userId);
+
+      if (existingProfile != null) {
+        // Update existing profile
+        await _firebaseService.updateRoommateProfile(
+          existingProfile['id'],
+          {
+            'bio': bio,
+            'interests': interests,
+            'preferences': preferences,
+            'gender': gender ?? 'other',
+            'courseYear': courseYear ?? '',
+            'college': college ?? '',
+            'username': username ?? '',
+          },
+        );
+        _myProfile = RoommateProfile.fromJson({
+          ...existingProfile,
           'bio': bio,
           'interests': interests,
           'preferences': preferences,
           'gender': gender,
           'courseYear': courseYear,
           'college': college,
-        },
-      );
+          'username': username,
+        });
+      } else {
+        // Create new profile
+        final profileId = await _firebaseService.createRoommateProfile(
+          userid: userId,
+          username: username ?? 'User',
+          bio: bio,
+          college: college ?? '',
+          courseYear: courseYear ?? '',
+          gender: gender ?? 'other',
+          interests: interests,
+          preferences: preferences,
+        );
 
-      if (response.containsKey('profile')) {
-        _myProfile = RoommateProfile.fromJson(response['profile']);
-        _profileComplete = true;
+        _myProfile = RoommateProfile(
+          id: profileId,
+          userid: userId,
+          username: username ?? 'User',
+          bio: bio,
+          college: college ?? '',
+          courseYear: courseYear ?? '',
+          gender: gender ?? 'other',
+          interests: interests,
+          preferences: preferences,
+        );
       }
 
+      _profileComplete = true;
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -71,18 +126,23 @@ class RoommateProvider extends ChangeNotifier {
     }
   }
 
-  // Get my profile
+  /// Get my profile
   Future<void> getMyProfile() async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      final response = await _apiService.get('/roommates/profile');
+      final userId = _firebaseService.currentUserId;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
 
-      if (response.containsKey('profile')) {
-        _myProfile = RoommateProfile.fromJson(response['profile']);
-        _profileComplete = _myProfile?.profileComplete ?? false;
+      final profile = await _firebaseService.getRoommateProfileByUserId(userId);
+
+      if (profile != null) {
+        _myProfile = RoommateProfile.fromJson(profile);
+        _profileComplete = _myProfile?.isComplete ?? false;
       }
 
       _isLoading = false;
@@ -94,184 +154,93 @@ class RoommateProvider extends ChangeNotifier {
     }
   }
 
-  // Get all profiles
-  Future<void> getAllProfiles() async {
+  /// Get all profiles with real-time updates
+  void getAllProfiles() {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      final response = await _apiService.get('/roommates/all');
-
-      if (response.containsKey('profiles')) {
-        final profilesJson = response['profiles'] as List;
-        _allProfiles = profilesJson.map((p) => RoommateProfile.fromJson(p)).toList();
-      }
-
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // Get compatible matches
-  Future<void> getMatches() async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      final response = await _apiService.get('/roommates/matches');
-
-      if (response.containsKey('matches')) {
-        final matchesJson = response['matches'] as List;
-        _matches = matchesJson.map((m) => RoommateProfile.fromJson(m)).toList();
-      }
-
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // Send message
-  Future<void> sendMessage(String receiverId, String message) async {
-    try {
-      _error = null;
-      final response = await _apiService.post(
-        '/chat/send',
-        {
-          'receiver': receiverId,
-          'message': message,
+      _profilesSubscription?.cancel();
+      _profilesSubscription = _firebaseService.getRoommateProfiles().listen(
+        (profilesData) {
+          _allProfiles = profilesData
+              .map((p) => RoommateProfile.fromJson(p))
+              .where((p) => p.userid != _firebaseService.currentUserId) // Exclude self
+              .toList();
+          _isLoading = false;
+          notifyListeners();
+        },
+        onError: (e) {
+          _error = e.toString();
+          _isLoading = false;
+          notifyListeners();
         },
       );
-
-      if (response.containsKey('data')) {
-        final newMessage = ChatMessage.fromJson(response['data']);
-        _messages.add(newMessage);
-      }
-
-      notifyListeners();
     } catch (e) {
       _error = e.toString();
+      _isLoading = false;
       notifyListeners();
-      rethrow;
     }
   }
 
-  // Get messages with a user
-  Future<void> getMessages(String conversationId) async {
+  /// Get compatible matches (simple implementation - can be enhanced)
+  void getMatches() {
     try {
-      _selectedConversationId = conversationId;
+      _isLoading = true;
       _error = null;
       notifyListeners();
 
-      final response = await _apiService.get('/chat/messages/$conversationId');
+      _profilesSubscription?.cancel();
+      _profilesSubscription = _firebaseService.getRoommateProfiles().listen(
+        (profilesData) {
+          final profiles = profilesData
+              .map((p) => RoommateProfile.fromJson(p))
+              .where((p) => p.userid != _firebaseService.currentUserId)
+              .toList();
 
-      if (response.containsKey('messages')) {
-        final messagesJson = response['messages'] as List;
-        _messages = messagesJson.map((m) => ChatMessage.fromJson(m)).toList();
-      }
+          // Simple matching algorithm based on shared interests
+          if (_myProfile != null) {
+            _matches = profiles.map((profile) {
+              final sharedInterests = profile.interests
+                  .where((i) => _myProfile!.interests.contains(i))
+                  .length;
+              final compatibility =
+                  (sharedInterests / (_myProfile!.interests.length + profile.interests.length) * 100)
+                      .round();
+              return profile.copyWith(compatibility: compatibility);
+            }).toList()
+              ..sort((a, b) => (b.compatibility ?? 0).compareTo(a.compatibility ?? 0));
+          } else {
+            _matches = profiles;
+          }
 
-      // Mark messages as read
-      await markAsRead(conversationId);
-      startPolling(conversationId);
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  // Get all conversations
-  Future<void> getConversations() async {
-    try {
-      _error = null;
-      final response = await _apiService.get('/chat/conversations');
-
-      if (response.containsKey('conversations')) {
-        final conversationsJson = response['conversations'] as List;
-        _conversations = conversationsJson.map((c) => ChatConversation.fromJson(c)).toList();
-      }
-
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  // Mark messages as read
-  Future<void> markAsRead(String conversationId) async {
-    try {
-      await _apiService.put(
-        '/chat/read/$conversationId',
-        {},
+          _isLoading = false;
+          notifyListeners();
+        },
+        onError: (e) {
+          _error = e.toString();
+          _isLoading = false;
+          notifyListeners();
+        },
       );
     } catch (e) {
       _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  // Start polling for new messages (3 seconds)
-  void startPolling(String conversationId) {
-    stopPolling();
-
-    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
-      try {
-        final response = await _apiService.get('/chat/messages/$conversationId');
-
-        if (response.containsKey('messages')) {
-          final messagesJson = response['messages'] as List;
-          final newMessages = messagesJson.map((m) => ChatMessage.fromJson(m)).toList();
-
-          // Check if there are new messages
-          if (newMessages.length != _messages.length) {
-            _messages = newMessages;
-            notifyListeners();
-          }
-        }
-      } catch (e) {
-        debugPrint('Polling error: $e');
-      }
-    });
-  }
-
-  // Stop polling
-  void stopPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = null;
-  }
-
-  // Delete message
-  Future<void> deleteMessage(String messageId) async {
-    try {
-      _error = null;
-      await _apiService.delete('/chat/message/$messageId');
-
-      _messages.removeWhere((m) => m.id == messageId);
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  // Delete profile
+  /// Delete profile
   Future<void> deleteProfile() async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      await _apiService.delete('/roommates/profile');
+      if (_myProfile != null) {
+        await _firebaseService.deleteRoommateProfile(_myProfile!.id);
+      }
 
       _myProfile = null;
       _profileComplete = false;
@@ -286,17 +255,199 @@ class RoommateProvider extends ChangeNotifier {
     }
   }
 
-  // Clear state
+  // ==================== CHAT OPERATIONS ====================
+
+  /// Send message
+  Future<void> sendMessage(String receiverid, String message) async {
+    try {
+      _error = null;
+      final senderid = _firebaseService.currentUserId;
+      if (senderid == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await _firebaseService.sendMessage(
+        senderid: senderid,
+        receiverid: receiverid,
+        message: message,
+      );
+
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Get messages with a user (real-time)
+  void getMessages(String otherUserId) {
+    try {
+      _selectedConversationId = otherUserId;
+      _error = null;
+      notifyListeners();
+
+      final currentUserId = _firebaseService.currentUserId;
+      if (currentUserId == null) return;
+
+      _messagesSubscription?.cancel();
+      _messagesSubscription = _firebaseService
+          .getChatMessages(currentUserId, otherUserId)
+          .listen(
+        (messagesData) {
+          _messages = messagesData.map((m) => ChatMessage.fromJson(m)).toList();
+          notifyListeners();
+
+          // Mark messages as read
+          _firebaseService.markConversationAsRead(currentUserId, otherUserId);
+        },
+        onError: (e) {
+          _error = e.toString();
+          notifyListeners();
+        },
+      );
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Get all conversations (real-time)
+  void getConversations() {
+    try {
+      _error = null;
+      final userId = _firebaseService.currentUserId;
+      if (userId == null) return;
+
+      _conversationsSubscription?.cancel();
+      _conversationsSubscription = _firebaseService.getConversations(userId).listen(
+        (conversationsData) {
+          // Convert to ChatConversation objects
+          // Note: This is simplified - you'd want to fetch user details for each conversation
+          _conversations = conversationsData.map((data) {
+            return ChatConversation(
+              userId: data['receiverid'] ?? '',
+              userName: 'User', // You'd fetch this from user collection
+              lastMessage: data['message'] ?? '',
+              lastMessageTime: data['timestamp'] != null
+                  ? (data['timestamp'] as dynamic).toDate()
+                  : DateTime.now(),
+              unreadCount: data['read'] == false ? 1 : 0,
+            );
+          }).toList();
+          notifyListeners();
+        },
+        onError: (e) {
+          _error = e.toString();
+          notifyListeners();
+        },
+      );
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  /// Mark conversation as read
+  Future<void> markAsRead(String otherUserId) async {
+    try {
+      final currentUserId = _firebaseService.currentUserId;
+      if (currentUserId == null) return;
+
+      await _firebaseService.markConversationAsRead(currentUserId, otherUserId);
+    } catch (e) {
+      _error = e.toString();
+    }
+  }
+
+  /// Get unread count
+  Future<int> getUnreadCount() async {
+    try {
+      final userId = _firebaseService.currentUserId;
+      if (userId == null) return 0;
+
+      return await _firebaseService.getUnreadCount(userId);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Delete a message by ID
+  Future<void> deleteMessage(String messageId) async {
+    try {
+      _error = null;
+      final currentUserId = _firebaseService.currentUserId;
+      if (currentUserId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Find and delete the message from Firestore
+      await FirebaseFirestore.instance
+          .collection('chatmessages')
+          .doc(messageId)
+          .delete();
+
+      // Remove from local list
+      _messages.removeWhere((m) => m.id == messageId);
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Start polling for messages (fallback when real-time updates fail)
+  void startPolling(String otherUserId, {Duration interval = const Duration(seconds: 5)}) {
+    stopPolling(); // Stop any existing polling
+    _isPolling = true;
+    notifyListeners();
+
+    _pollingTimer = Timer.periodic(interval, (timer) async {
+      try {
+        final currentUserId = _firebaseService.currentUserId;
+        if (currentUserId == null) return;
+
+        final messagesData = await _firebaseService
+            .getChatMessages(currentUserId, otherUserId)
+            .first;
+        
+        _messages = messagesData.map((m) => ChatMessage.fromJson(m)).toList();
+        notifyListeners();
+      } catch (e) {
+        debugPrint('Polling error: $e');
+      }
+    });
+  }
+
+  /// Stop polling for messages
+  void stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+    _isPolling = false;
+    notifyListeners();
+  }
+
+  // ==================== CLEANUP ====================
+
+  /// Clear state
   void clearState() {
     stopPolling();
+    _messagesSubscription?.cancel();
+    _conversationsSubscription?.cancel();
+    _profilesSubscription?.cancel();
     _selectedConversationId = null;
     _messages.clear();
+    _conversations.clear();
     notifyListeners();
   }
 
   @override
   void dispose() {
     stopPolling();
+    _messagesSubscription?.cancel();
+    _conversationsSubscription?.cancel();
+    _profilesSubscription?.cancel();
     super.dispose();
   }
 }

@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
+import 'package:provider/provider.dart';
 import 'package:roomix/constants/app_colors.dart';
-import 'package:roomix/services/api_service.dart';
+import 'package:roomix/providers/auth_provider.dart';
+import 'package:roomix/providers/owner_listings_provider.dart';
+import 'package:roomix/services/firebase_storage_service.dart';
 
 class AddRoomScreen extends StatefulWidget {
   const AddRoomScreen({super.key});
@@ -18,6 +20,7 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
   final _locationController = TextEditingController();
   final _priceController = TextEditingController();
   final _contactController = TextEditingController();
+  final _universityController = TextEditingController();
   
   String _selectedType = 'Single';
   final List<String> _roomTypes = ['Single', 'Shared', 'Double', 'Triple'];
@@ -31,8 +34,33 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
   String? _uploadedImageUrl;
   bool _isLoading = false;
   bool _isUploading = false;
+  bool _isStudent = false;
 
-  final cloudinary = CloudinaryPublic('dqdetb0ta', 'roomix_uploads', cache: false);
+  final _storageService = FirebaseStorageService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Check user role
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userRole = authProvider.currentUser?.role;
+      
+      if (userRole == 'student') {
+        setState(() => _isStudent = true);
+        // Show message and redirect
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Only property owners can add listings'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) Navigator.pop(context);
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -40,10 +68,13 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
     _locationController.dispose();
     _priceController.dispose();
     _contactController.dispose();
+    _universityController.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
+    if (_isStudent) return;
+    
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     
@@ -56,16 +87,16 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
   }
 
   Future<void> _uploadImage() async {
-    if (_selectedImage == null) return;
+    if (_selectedImage == null || _isStudent) return;
     
     setState(() => _isUploading = true);
     
     try {
-      CloudinaryResponse response = await cloudinary.uploadFile(
-        CloudinaryFile.fromFile(_selectedImage!.path, folder: 'rooms'),
+      final imageUrl = await _storageService.uploadRoomImage(
+        file: _selectedImage!,
       );
       setState(() {
-        _uploadedImageUrl = response.secureUrl;
+        _uploadedImageUrl = imageUrl;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -84,6 +115,16 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
   }
 
   Future<void> _submitRoom() async {
+    if (_isStudent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Students cannot add room listings'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+    
     if (!_formKey.currentState!.validate()) return;
     
     if (_uploadedImageUrl == null) {
@@ -96,17 +137,19 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
     setState(() => _isLoading = true);
     
     try {
-      await ApiService.createRoom({
-        'title': _titleController.text.trim(),
-        'location': _locationController.text.trim(),
-        'price': double.parse(_priceController.text.trim()),
-        'type': _selectedType,
-        'contact': _contactController.text.trim(),
-        'image': _uploadedImageUrl,
-        'amenities': _selectedAmenities,
-      });
+      final provider = Provider.of<OwnerListingsProvider>(context, listen: false);
+      final success = await provider.addRoom(
+        title: _titleController.text.trim(),
+        location: _locationController.text.trim(),
+        price: double.parse(_priceController.text.trim()),
+        type: _selectedType,
+        contact: _contactController.text.trim(),
+        amenities: _selectedAmenities,
+        university: _universityController.text.trim(),
+        imageFile: _selectedImage,
+      );
       
-      if (mounted) {
+      if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Room listed successfully!'),
@@ -132,85 +175,90 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.backgroundGradient,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // App Bar
-              _buildAppBar(),
-              
-              // Form
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Image Picker
-                        _buildImagePicker(),
-                        const SizedBox(height: 24),
-                        
-                        // Title Field
-                        _buildTextField(
-                          controller: _titleController,
-                          label: 'Room Title',
-                          hint: 'e.g., Spacious Single Room Near Campus',
-                          icon: Icons.title_rounded,
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Location Field
-                        _buildTextField(
-                          controller: _locationController,
-                          label: 'Location',
-                          hint: 'e.g., Sector 62, Near College Gate',
-                          icon: Icons.location_on_rounded,
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Price Field
-                        _buildTextField(
-                          controller: _priceController,
-                          label: 'Monthly Rent (₹)',
-                          hint: 'e.g., 5000',
-                          icon: Icons.currency_rupee_rounded,
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Contact Field
-                        _buildTextField(
-                          controller: _contactController,
-                          label: 'Contact Number',
-                          hint: 'e.g., 9876543210',
-                          icon: Icons.phone_rounded,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 24),
-                        
-                        // Room Type Selector
-                        _buildTypeSelector(),
-                        const SizedBox(height: 24),
-                        
-                        // Amenities
-                        _buildAmenities(),
-                        const SizedBox(height: 32),
-                        
-                        // Submit Button
-                        _buildSubmitButton(),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // App Bar
+            _buildAppBar(),
+            
+            // Form
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image Picker
+                      _buildImagePicker(),
+                      const SizedBox(height: 24),
+                      
+                      // Title Field
+                      _buildTextField(
+                        controller: _titleController,
+                        label: 'Room Title',
+                        hint: 'e.g., Spacious Single Room Near Campus',
+                        icon: Icons.title_rounded,
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Location Field
+                      _buildTextField(
+                        controller: _locationController,
+                        label: 'Location',
+                        hint: 'e.g., Sector 62, Near College Gate',
+                        icon: Icons.location_on_rounded,
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Price Field
+                      _buildTextField(
+                        controller: _priceController,
+                        label: 'Monthly Rent (₹)',
+                        hint: 'e.g., 5000',
+                        icon: Icons.currency_rupee_rounded,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Contact Field
+                      _buildTextField(
+                        controller: _contactController,
+                        label: 'Contact Number',
+                        hint: 'e.g., 9876543210',
+                        icon: Icons.phone_rounded,
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // University Field
+                      _buildTextField(
+                        controller: _universityController,
+                        label: 'University (Optional)',
+                        hint: 'e.g., Delhi University',
+                        icon: Icons.school_rounded,
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Room Type Selector
+                      _buildTypeSelector(),
+                      const SizedBox(height: 24),
+                      
+                      // Amenities
+                      _buildAmenities(),
+                      const SizedBox(height: 32),
+                      
+                      // Submit Button
+                      _buildSubmitButton(),
+                      const SizedBox(height: 20),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -219,6 +267,7 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.all(16),
+      color: AppColors.background,
       child: Row(
         children: [
           IconButton(
@@ -226,17 +275,18 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
               ),
-              child: const Icon(Icons.arrow_back, color: Colors.white),
+              child: const Icon(Icons.arrow_back, color: AppColors.textDark),
             ),
           ),
           const SizedBox(width: 12),
           const Text(
             'Add PG / Room',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.textDark,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -248,16 +298,15 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
 
   Widget _buildImagePicker() {
     return GestureDetector(
-      onTap: _isUploading ? null : _pickImage,
+      onTap: _isUploading || _isStudent ? null : _pickImage,
       child: Container(
         height: 200,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.white.withOpacity(0.2),
+            color: AppColors.border,
             width: 2,
-            style: BorderStyle.solid,
           ),
         ),
         child: _isUploading
@@ -269,7 +318,7 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
                     SizedBox(height: 12),
                     Text(
                       'Uploading...',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: AppColors.textGray),
                     ),
                   ],
                 ),
@@ -316,13 +365,13 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
                       Icon(
                         Icons.add_photo_alternate_rounded,
                         size: 50,
-                        color: Colors.white.withOpacity(0.5),
+                        color: AppColors.textGray.withOpacity(0.5),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         'Tap to add room photo',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                          color: AppColors.textGray,
                           fontSize: 16,
                         ),
                       ),
@@ -330,7 +379,7 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
                       Text(
                         'Good photos attract more tenants!',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: AppColors.textGray.withOpacity(0.7),
                           fontSize: 12,
                         ),
                       ),
@@ -353,7 +402,7 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.textDark,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -362,20 +411,20 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AppColors.textDark),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+            hintStyle: TextStyle(color: AppColors.textGray.withOpacity(0.6)),
             prefixIcon: Icon(icon, color: AppColors.primary),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.08),
+            fillColor: Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+              borderSide: BorderSide(color: AppColors.border),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -400,7 +449,7 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
         const Text(
           'Room Type',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.textDark,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -417,17 +466,16 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
-                  gradient: isSelected ? AppColors.primaryGradient : null,
-                  color: isSelected ? null : Colors.white.withOpacity(0.08),
+                  color: isSelected ? AppColors.primary : Colors.white,
                   borderRadius: BorderRadius.circular(25),
                   border: Border.all(
-                    color: isSelected ? Colors.transparent : Colors.white.withOpacity(0.2),
+                    color: isSelected ? AppColors.primary : AppColors.border,
                   ),
                 ),
                 child: Text(
                   type,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: isSelected ? Colors.white : AppColors.textDark,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
@@ -446,7 +494,7 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
         const Text(
           'Amenities',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.textDark,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -472,11 +520,11 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: isSelected 
-                      ? AppColors.accent.withOpacity(0.3) 
-                      : Colors.white.withOpacity(0.08),
+                      ? AppColors.primaryLight 
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected ? AppColors.accent : Colors.white.withOpacity(0.15),
+                    color: isSelected ? AppColors.primary : AppColors.border,
                   ),
                 ),
                 child: Row(
@@ -485,12 +533,12 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
                     if (isSelected)
                       const Padding(
                         padding: EdgeInsets.only(right: 6),
-                        child: Icon(Icons.check, color: AppColors.accent, size: 16),
+                        child: Icon(Icons.check, color: AppColors.primary, size: 16),
                       ),
                     Text(
                       amenity,
                       style: TextStyle(
-                        color: isSelected ? AppColors.accent : Colors.white70,
+                        color: isSelected ? AppColors.primary : AppColors.textGray,
                         fontSize: 13,
                       ),
                     ),
@@ -509,14 +557,13 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _submitRoom,
+        onPressed: _isLoading || _isStudent ? null : _submitRoom,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: _isStudent ? AppColors.textGray : AppColors.primary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          elevation: 8,
-          shadowColor: AppColors.primary.withOpacity(0.4),
+          elevation: 0,
         ),
         child: _isLoading
             ? const SizedBox(
@@ -527,14 +574,17 @@ class _AddRoomScreenState extends State<AddRoomScreen> {
                   strokeWidth: 2,
                 ),
               )
-            : const Row(
+            : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle_rounded, color: Colors.white),
-                  SizedBox(width: 8),
+                  Icon(
+                    _isStudent ? Icons.block : Icons.check_circle_rounded, 
+                    color: Colors.white
+                  ),
+                  const SizedBox(width: 8),
                   Text(
-                    'List My Room',
-                    style: TextStyle(
+                    _isStudent ? 'Students Cannot Add Listings' : 'List My Room',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

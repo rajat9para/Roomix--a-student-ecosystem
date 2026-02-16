@@ -589,7 +589,9 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
   }
 
   Widget _buildReviewCard(MessReview review) {
-    final date = DateFormat('MMM d, yyyy').format(review.createdAt);
+    final dateStr = review.createdAt != null 
+        ? DateFormat('MMM d, yyyy').format(review.createdAt!)
+        : 'Recently';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -615,7 +617,7 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        review.userId.isEmpty ? 'Unknown user' : 'User ${review.userId.length >= 8 ? review.userId.substring(0, 8) : review.userId}',
+                        review.userName.isNotEmpty ? review.userName : (review.userId.isEmpty ? 'Unknown user' : 'User ${review.userId.length >= 8 ? review.userId.substring(0, 8) : review.userId}'),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -644,9 +646,9 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          if (review.comment != null && review.comment!.isNotEmpty) ...[
+          if (review.comment.isNotEmpty) ...[
             Text(
-              review.comment!,
+              review.comment,
               style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.textDark,
@@ -655,7 +657,7 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
             const SizedBox(height: 8),
           ],
           Text(
-            date,
+            dateStr,
             style: const TextStyle(
               fontSize: 11,
               color: AppColors.textGray,

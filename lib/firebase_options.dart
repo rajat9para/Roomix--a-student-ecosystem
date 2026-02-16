@@ -42,43 +42,51 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: String.fromEnvironment('FIREBASE_API_KEY', defaultValue: 'AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'),
-    authDomain: String.fromEnvironment('FIREBASE_AUTH_DOMAIN', defaultValue: 'roomix-28de2.firebaseapp.com'),
-    projectId: String.fromEnvironment('FIREBASE_PROJECT_ID', defaultValue: 'roomix-28de2'),
-    storageBucket: String.fromEnvironment('FIREBASE_STORAGE_BUCKET', defaultValue: 'roomix-28de2.appspot.com'),
-    messagingSenderId: String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID', defaultValue: '123456789012'),
-    appId: String.fromEnvironment('FIREBASE_APP_ID', defaultValue: '1:123456789012:web:abcdef1234567890abcdef'),
+    apiKey: 'AIzaSyBJZuqiCP19k0eE57wu5s0JZn04Y0R9hBw',
+    appId: '1:857963052155:web:ef7390c7da4cb47788f6de',
+    messagingSenderId: '857963052155',
+    projectId: 'roomix-2f734',
+    authDomain: 'roomix-2f734.firebaseapp.com',
+    storageBucket: 'roomix-2f734.firebasestorage.app',
+    measurementId: 'G-V4BEJRSF6F',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    appId: '1:123456789012:android:abcdef1234567890abcdef',
-    messagingSenderId: '123456789012',
-    projectId: 'roomix-28de2',
-    storageBucket: 'roomix-28de2.appspot.com',
+    apiKey: 'AIzaSyDS9c_9MQwJLvwBngqztSNwbGKBsm9aAdc',
+    appId: '1:857963052155:android:6ee0676e8d8599fa88f6de',
+    messagingSenderId: '857963052155',
+    projectId: 'roomix-2f734',
+    storageBucket: 'roomix-2f734.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    appId: '1:123456789012:ios:abcdef1234567890abcdef',
-    messagingSenderId: '123456789012',
-    projectId: 'roomix-28de2',
-    storageBucket: 'roomix-28de2.appspot.com',
+    apiKey: 'AIzaSyDQM0ggJd4xCoNw3orhtMbIwOI8H4nWgIQ',
+    appId: '1:857963052155:ios:fdcfd310f1ae7b8188f6de',
+    messagingSenderId: '857963052155',
+    projectId: 'roomix-2f734',
+    storageBucket: 'roomix-2f734.firebasestorage.app',
+    iosClientId: '857963052155-l3p0asr9vup977q8e5ouuoovv8maek6q.apps.googleusercontent.com',
+    iosBundleId: 'com.company.roomix',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    appId: '1:123456789012:macos:abcdef1234567890abcdef',
-    messagingSenderId: '123456789012',
-    projectId: 'roomix-28de2',
-    storageBucket: 'roomix-28de2.appspot.com',
+    apiKey: 'AIzaSyDQM0ggJd4xCoNw3orhtMbIwOI8H4nWgIQ',
+    appId: '1:857963052155:ios:fdcfd310f1ae7b8188f6de',
+    messagingSenderId: '857963052155',
+    projectId: 'roomix-2f734',
+    storageBucket: 'roomix-2f734.firebasestorage.app',
+    iosClientId: '857963052155-l3p0asr9vup977q8e5ouuoovv8maek6q.apps.googleusercontent.com',
+    iosBundleId: 'com.company.roomix',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    appId: '1:123456789012:windows:abcdef1234567890abcdef',
-    messagingSenderId: '123456789012',
-    projectId: 'roomix-28de2',
-    storageBucket: 'roomix-28de2.appspot.com',
+    apiKey: 'AIzaSyBJZuqiCP19k0eE57wu5s0JZn04Y0R9hBw',
+    appId: '1:857963052155:web:a24ab05a33ea5ab788f6de',
+    messagingSenderId: '857963052155',
+    projectId: 'roomix-2f734',
+    authDomain: 'roomix-2f734.firebaseapp.com',
+    storageBucket: 'roomix-2f734.firebasestorage.app',
+    measurementId: 'G-KFQHDQ6SFC',
   );
+
 }

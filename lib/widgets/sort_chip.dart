@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:roomix/constants/app_colors.dart';
 
 class SortChip extends StatelessWidget {
   /// Display text for the chip
@@ -37,24 +38,22 @@ class SortChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isActive
-              ? activeCol.withOpacity(0.2)
-              : Colors.white.withOpacity(0.08),
+              ? activeCol.withOpacity(0.1)
+              : Colors.white,
           border: Border.all(
             color: isActive
                 ? activeCol
-                : Colors.white.withOpacity(0.2),
+                : AppColors.border,
             width: isActive ? 1.5 : 1,
           ),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: activeCol.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -65,7 +64,7 @@ class SortChip extends StatelessWidget {
                 size: 16,
                 color: isActive
                     ? activeCol
-                    : Colors.white.withOpacity(0.6),
+                    : AppColors.textGray,
               ),
               const SizedBox(width: 6),
             ],
@@ -74,7 +73,7 @@ class SortChip extends StatelessWidget {
               style: TextStyle(
                 color: isActive
                     ? activeCol
-                    : Colors.white.withOpacity(0.7),
+                    : AppColors.textGray,
                 fontSize: 13,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                 letterSpacing: 0.2,

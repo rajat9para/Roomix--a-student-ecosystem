@@ -7,6 +7,7 @@ import 'package:roomix/constants/app_colors.dart';
 import 'package:roomix/screens/owner/add_room_screen.dart';
 import 'package:roomix/screens/owner/add_mess_screen.dart';
 import 'package:roomix/utils/smooth_navigation.dart';
+import 'package:roomix/screens/messages/messages_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
@@ -23,8 +24,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     final user = authProvider.currentUser;
 
     return ChangeNotifierProvider(
-      create: (_) => OwnerListingsProvider(user?.id),
+      create: (_) => OwnerListingsProvider(),
       child: Consumer<OwnerListingsProvider>(builder: (context, listings, _) {
+        // Load listings when provider is created
+        if (user?.id != null) {
+          listings.loadMyListings(user!.id!);
+        }
 
     return Scaffold(
       body: Container(
@@ -101,6 +106,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
           ),
         ),
       ),
+        ),
     );
       }),
     );
@@ -395,6 +401,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
             final listings = Provider.of<OwnerListingsProvider>(context, listen: false);
             await listings.fetchAll();
             _showReviewsDialog(context);
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildManagementTile(
+          icon: Icons.chat_bubble_rounded,
+          title: 'Inquiries & Messages',
+          subtitle: 'Chat with potential tenants',
+          color: AppColors.primary, // Using primary color for messages
+          onTap: () {
+            SmoothNavigation.push(context, const MessagesScreen());
           },
         ),
       ],

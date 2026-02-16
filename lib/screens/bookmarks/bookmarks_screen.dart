@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:roomix/models/bookmark_model.dart';
 import 'package:roomix/providers/bookmarks_provider.dart';
 import 'package:roomix/constants/app_colors.dart';
-import 'package:roomix/widgets/loading_indicator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:roomix/services/firebase_service.dart';
+import 'package:roomix/models/room_model.dart';
+import 'package:roomix/screens/rooms/room_detail_screen.dart';
+import 'package:roomix/utils/smooth_navigation.dart';
 
 class BookmarksScreen extends StatefulWidget {
   const BookmarksScreen({super.key});
@@ -15,27 +17,10 @@ class BookmarksScreen extends StatefulWidget {
 }
 
 class _BookmarksScreenState extends State<BookmarksScreen> {
-  String _selectedType = 'all';
-  String _sortBy = 'newest';
+  String _selectedTab = 'PGs';
   final TextEditingController _searchController = TextEditingController();
 
-  final List<Map<String, String>> _types = [
-    {'label': 'All', 'value': 'all'},
-    {'label': 'Rooms', 'value': 'room'},
-    {'label': 'Mess', 'value': 'mess'},
-    {'label': 'Utilities', 'value': 'utility'},
-    {'label': 'Market', 'value': 'market'},
-    {'label': 'Roommates', 'value': 'roommate'},
-    {'label': 'Events', 'value': 'event'},
-  ];
-
-  final List<Map<String, String>> _sortOptions = [
-    {'label': 'Newest', 'value': 'newest'},
-    {'label': 'Oldest', 'value': 'oldest'},
-    {'label': 'Price Low', 'value': 'price-low'},
-    {'label': 'Price High', 'value': 'price-high'},
-    {'label': 'Top Rating', 'value': 'rating'},
-  ];
+  final List<String> _tabs = ['PGs', 'Roommates', 'Market'];
 
   @override
   void initState() {
@@ -54,78 +39,122 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('My Bookmarks'),
-        backgroundColor: AppColors.darkBackground,
+        title: const Text(
+          'Saved Bookmarks',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        iconTheme: const IconThemeData(color: AppColors.primary),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined, color: AppColors.primary),
+            onPressed: _showClearAllDialog,
+          ),
+        ],
       ),
       body: Consumer<BookmarksProvider>(
         builder: (context, bookmarksProvider, _) {
-          final bookmarks = _buildFilteredBookmarks(bookmarksProvider);
-
           return Column(
             children: [
-              // Search Bar
-              _buildSearchBar(),
-
-              // Type Filter Chips
-              _buildTypeFilter(bookmarksProvider),
-
-              // Sort Option
-              _buildSortOption(),
-
-              // Bookmarks Count
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              // Tab Navigation
+              Container(
+                color: Colors.white,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Showing ${bookmarks.length} bookmarks',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.6),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (bookmarks.isNotEmpty)
-                      GestureDetector(
-                        onTap: _showClearAllDialog,
-                        child: Text(
-                          'Clear all',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFFEF4444),
-                            fontWeight: FontWeight.w500,
+                  children: _tabs.map((tab) {
+                    final isSelected = _selectedTab == tab;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedTab = tab),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: isSelected ? AppColors.primary : Colors.transparent,
+                                width: 3,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            tab,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? AppColors.primary : AppColors.textGray,
+                            ),
                           ),
                         ),
                       ),
-                  ],
+                    );
+                  }).toList(),
                 ),
               ),
 
-              // Bookmarks List
+              // Search Bar
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.all(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      context.read<BookmarksProvider>().filterBookmarks(value);
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search saved items...',
+                      hintStyle: TextStyle(
+                        color: AppColors.textGray,
+                        fontSize: 14,
+                      ),
+                      prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () {
+                                _searchController.clear();
+                                context.read<BookmarksProvider>().filterBookmarks('');
+                              },
+                              child: const Icon(Icons.clear, color: AppColors.textGray),
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Content
               Expanded(
                 child: bookmarksProvider.isLoading
                     ? const Center(
-                        child: LoadingIndicator(
-                          style: LoadingStyle.gradient,
-                          sizeVariant: LoadingSize.large,
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                         ),
                       )
-                    : bookmarks.isEmpty
+                    : _buildFilteredBookmarks(bookmarksProvider).isEmpty
                         ? _buildEmptyState()
                         : RefreshIndicator(
-                            onRefresh: () =>
-                                bookmarksProvider.fetchBookmarks(),
+                            onRefresh: () => bookmarksProvider.fetchBookmarks(),
                             child: ListView.builder(
                               padding: const EdgeInsets.all(16),
-                              itemCount: bookmarks.length,
-                              itemBuilder: (context, index) =>
-                                  _buildBookmarkCard(bookmarks[index]),
+                              itemCount: _buildFilteredBookmarks(bookmarksProvider).length,
+                              itemBuilder: (context, index) {
+                                final bookmark = _buildFilteredBookmarks(bookmarksProvider)[index];
+                                return _buildBookmarkCard(bookmark);
+                              },
                             ),
                           ),
               ),
@@ -136,325 +165,159 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.15),
-                width: 1,
-              ),
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                context.read<BookmarksProvider>().filterBookmarks(value);
-              },
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Search bookmarks...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                prefixIcon: Icon(Icons.search,
-                    color: Colors.white.withOpacity(0.6)),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? GestureDetector(
-                        onTap: () {
-                          _searchController.clear();
-                          context
-                              .read<BookmarksProvider>()
-                              .filterBookmarks('');
-                        },
-                        child: Icon(Icons.clear,
-                            color: Colors.white.withOpacity(0.6)),
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-              ),
-            ),
-          ),
+  List<BookmarkModel> _buildFilteredBookmarks(BookmarksProvider provider) {
+    List<BookmarkModel> bookmarks = provider.filteredBookmarks;
+    
+    // Filter by tab
+    if (_selectedTab == 'PGs') {
+      bookmarks = bookmarks.where((b) => b.type == 'room' || b.type == 'pg').toList();
+    } else if (_selectedTab == 'Roommates') {
+      bookmarks = bookmarks.where((b) => b.type == 'roommate').toList();
+    } else if (_selectedTab == 'Market') {
+      bookmarks = bookmarks.where((b) => b.type == 'market').toList();
+    }
+    
+    return bookmarks;
+  }
+
+  Widget _buildBookmarkCard(BookmarkModel bookmark) {
+    return GestureDetector(
+        onTap: () async {
+      if (bookmark.type != 'room' && bookmark.type != 'pg') return;
+
+      final firebase = FirebaseService();
+
+      final data = await firebase.getRoomById(bookmark.itemid);
+
+      if (!mounted) return;
+
+      if (data == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Room no longer exists")),
+        );
+        return;
+      }
+
+      final room = RoomModel.fromJson(data);
+
+      SmoothNavigation.push(
+        context,
+        RoomDetailScreen(room: room),
+      );
+    },
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.border.withOpacity(0.3),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTypeFilter(BookmarksProvider bookmarksProvider) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: _types.map((type) {
-          final isSelected = _selectedType == type['value'];
-          final count = type['value'] == 'all'
-              ? bookmarksProvider.getTotalCount()
-              : bookmarksProvider.getCountByType(type['value']!);
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text('${type['label']} ($count)'),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  _selectedType = type['value']!;
-                });
-                if (type['value'] == 'all') {
-                  bookmarksProvider.filterBookmarks(_searchController.text);
-                } else {
-                  bookmarksProvider.filterByType(
-                    type['value']!,
-                    query: _searchController.text.isEmpty
-                        ? null
-                        : _searchController.text,
-                  );
-                }
-              },
-              backgroundColor: Colors.transparent,
-              selectedColor: Color(0xFF8B5CF6).withOpacity(0.3),
-              side: BorderSide(
-                color: isSelected
-                    ? Color(0xFF8B5CF6).withOpacity(0.5)
-                    : Colors.white.withOpacity(0.2),
-                width: 1.5,
-              ),
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildSortOption() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Sort by',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _sortOptions.map((option) {
-                final isSelected = _sortBy == option['value'];
-                return Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _sortBy = option['value']!;
-                      });
-                      context
-                          .read<BookmarksProvider>()
-                          .sortBookmarks(_sortBy);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? Color(0xFF8B5CF6).withOpacity(0.3)
-                            : Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: isSelected
-                              ? Color(0xFF8B5CF6).withOpacity(0.5)
-                              : Colors.white.withOpacity(0.1),
-                          width: 1,
+        ],
+      ),
+      child: Row(
+        children: [
+          // Image
+          if (bookmark.itemImage != null)
+            ClipRRect(
+              borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+              child: CachedNetworkImage(
+                imageUrl: bookmark.itemImage!,
+                width: 100,
+                height: 100,
+                fit: BoxFit.cover,
+                errorWidget: (context, url, error) => Container(
+                  width: 100,
+                  height: 100,
+                  color: AppColors.background,
+                  child: const Icon(Icons.image_not_supported, color: AppColors.textGray),
+                ),
+              ),
+            )
+          else
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+              ),
+              child: Icon(
+                _getTypeIcon(bookmark.type),
+                color: AppColors.primary.withOpacity(0.5),
+                size: 32,
+              ),
+            ),
+
+          // Content
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _getTypeColor(bookmark.type).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          bookmark.type.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: _getTypeColor(bookmark.type),
+                          ),
                         ),
                       ),
-                      child: Text(
-                        option['label']!,
-                        style: TextStyle(
-                          color: isSelected
-                              ? Colors.white
-                              : Colors.white.withOpacity(0.6),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => _removeBookmark(context, bookmark.id),
+                        child: Icon(
+                          Icons.close,
+                          color: AppColors.textGray.withOpacity(0.5),
+                          size: 18,
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    bookmark.itemTitle ?? 'Untitled',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                );
-              }).toList(),
+                  const SizedBox(height: 6),
+                  if (bookmark.itemPrice != null)
+                    Text(
+                      '₹${bookmark.itemPrice?.toStringAsFixed(0) ?? 'N/A'}',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBookmarkCard(BookmarkModel bookmark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.15),
-                width: 1.5,
-              ),
-            ),
-            child: Row(
-              children: [
-                // Image
-                if (bookmark.itemImage != null)
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                    child: CachedNetworkImage(
-                      imageUrl: bookmark.itemImage!,
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
-                      errorWidget: (context, url, error) => Container(
-                        width: 100,
-                        height: 100,
-                        color: Colors.white.withOpacity(0.05),
-                        child: const Icon(Icons.image_not_supported,
-                            color: Color(0xFF8B5CF6)),
-                      ),
-                    ),
-                  ),
-
-                // Content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Type Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _getTypeColor(bookmark.type)
-                                .withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: _getTypeColor(bookmark.type)
-                                  .withOpacity(0.5),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            bookmark.type.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: _getTypeColor(bookmark.type),
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-
-                        // Title
-                        Text(
-                          bookmark.itemTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-
-                        // Price & Rating
-                        Row(
-                          children: [
-                            if (bookmark.itemPrice != null) ...[
-                              Text(
-                                '₹${bookmark.itemPrice?.toStringAsFixed(0) ?? 'N/A'}',
-                                style: TextStyle(
-                                  color: Color(0xFF8B5CF6),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                            ],
-                            if (bookmark.rating != null)
-                              Row(
-                                children: [
-                                  Icon(Icons.star,
-                                      size: 14,
-                                      color: Colors.amber.withOpacity(0.8)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    bookmark.rating?.toStringAsFixed(1) ??
-                                        'N/A',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-
-                        // Saved date
-                        const SizedBox(height: 6),
-                        Text(
-                          'Saved ${_formatDate(bookmark.createdAt)}',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Remove button
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: GestureDetector(
-                    onTap: () => _removeBookmark(context, bookmark.id),
-                    child: Icon(
-                      Icons.close,
-                      color: Colors.white.withOpacity(0.6),
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    )
     );
   }
 
@@ -463,25 +326,33 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.bookmark_border,
-            size: 80,
-            color: Colors.white.withOpacity(0.2),
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: Icon(
+              Icons.bookmark_outline,
+              size: 48,
+              color: AppColors.primary.withOpacity(0.5),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
-            'No bookmarks yet',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+            'No saved $_selectedTab yet',
+            style: const TextStyle(
+              color: AppColors.textDark,
               fontSize: 16,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Start bookmarking your favorite items',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: AppColors.textGray,
               fontSize: 14,
             ),
           ),
@@ -490,89 +361,31 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
-  List<BookmarkModel> _buildFilteredBookmarks(
-      BookmarksProvider bookmarksProvider) {
-    List<BookmarkModel> bookmarks = bookmarksProvider.filteredBookmarks;
-
-    // Apply type filter if not 'all'
-    if (_selectedType != 'all') {
-      bookmarks =
-          bookmarks.where((b) => b.type == _selectedType).toList();
+  IconData _getTypeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'room':
+      case 'pg':
+        return Icons.home_work_outlined;
+      case 'mess':
+        return Icons.restaurant_outlined;
+      case 'utility':
+        return Icons.store_outlined;
+      case 'market':
+        return Icons.shopping_bag_outlined;
+      case 'roommate':
+        return Icons.group_outlined;
+      case 'event':
+        return Icons.event_outlined;
+      default:
+        return Icons.bookmark_outline;
     }
-
-    return bookmarks;
-  }
-
-  void _removeBookmark(BuildContext context, String bookmarkId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
-          'Remove Bookmark?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'This bookmark will be removed from your saved items.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<BookmarksProvider>().removeBookmark(bookmarkId);
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Remove',
-              style: TextStyle(color: Color(0xFFEF4444)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showClearAllDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
-          'Clear All Bookmarks?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'This will remove all your bookmarked items permanently.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              // Implement clear all logic
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Clear All',
-              style: TextStyle(color: Color(0xFFEF4444)),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Color _getTypeColor(String type) {
     switch (type.toLowerCase()) {
       case 'room':
-        return const Color(0xFF3B82F6);
+      case 'pg':
+        return AppColors.primary;
       case 'mess':
         return const Color(0xFF10B981);
       case 'utility':
@@ -584,24 +397,64 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       case 'event':
         return const Color(0xFFF59E0B);
       default:
-        return const Color(0xFF8B5CF6);
+        return AppColors.primary;
     }
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
+  void _removeBookmark(BuildContext context, String bookmarkId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Remove Bookmark?',
+          style: TextStyle(color: AppColors.textDark),
+        ),
+        content: const Text(
+          'This bookmark will be removed from your saved items.',
+          style: TextStyle(color: AppColors.textGray),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textGray)),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<BookmarksProvider>().removeBookmark(bookmarkId);
+              Navigator.pop(context);
+            },
+            child: const Text('Remove', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (diff.inDays == 0) {
-      return 'today';
-    } else if (diff.inDays == 1) {
-      return 'yesterday';
-    } else if (diff.inDays < 7) {
-      return '${diff.inDays} days ago';
-    } else if (diff.inDays < 30) {
-      return '${(diff.inDays / 7).floor()} weeks ago';
-    } else {
-      return '${(diff.inDays / 30).floor()} months ago';
-    }
+  void _showClearAllDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Clear All Bookmarks?',
+          style: TextStyle(color: AppColors.textDark),
+        ),
+        content: const Text(
+          'This will remove all your bookmarked items permanently.',
+          style: TextStyle(color: AppColors.textGray),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textGray)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Clear All', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -383,7 +383,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
         // Email Field
         _buildTextField(
           controller: _emailController,
-          hintText: 'name@university.edu',
+          hintText: '',
           labelText: 'University Email',
           icon: Icons.mail_outline,
           keyboardType: TextInputType.emailAddress,
