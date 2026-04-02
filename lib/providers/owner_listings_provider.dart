@@ -1,14 +1,15 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:roomix/models/room_model.dart';
 import 'package:roomix/models/mess_model.dart';
 import 'package:roomix/services/firebase_service.dart';
-import 'package:roomix/services/firebase_storage_service.dart';
+import 'package:roomix/services/cloudinary_upload_service.dart';
 
 /// Provider for managing owner listings (rooms and mess)
 class OwnerListingsProvider with ChangeNotifier {
   final FirebaseService _firebaseService = FirebaseService();
-  final FirebaseStorageService _storageService = FirebaseStorageService();
+  final CloudinaryUploadService _storageService = CloudinaryUploadService();
 
   List<RoomModel> _myRooms = [];
   List<MessModel> _myMess = [];
@@ -88,92 +89,132 @@ class OwnerListingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Stream subscriptions
-  Stream<List<RoomModel>>? _roomsStream;
-  Stream<List<MessModel>>? _messStream;
+  StreamSubscription<List<RoomModel>>? _roomsSubscription;
+  StreamSubscription<List<MessModel>>? _messSubscription;
+  String? _activeOwnerId;
 
   /// Load owner listings with real-time updates
   void loadMyListings(String ownerId) {
+    final normalizedOwnerId = ownerId.trim();
+    if (normalizedOwnerId.isEmpty) {
+      _cancelListingSubscriptions();
+      _activeOwnerId = null;
+      _isLoading = false;
+      clearListings();
+      return;
+    }
+    if (_activeOwnerId == normalizedOwnerId &&
+        (_roomsSubscription != null || _messSubscription != null)) {
+      return;
+    }
+
+    _cancelListingSubscriptions();
+    _activeOwnerId = normalizedOwnerId;
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    // Listen to rooms
-    _roomsStream = _firebaseService.getRoomsByOwner(ownerId).map((data) {
-      return data.map((json) => RoomModel.fromJson(json)).toList();
-    });
+    _roomsSubscription = _firebaseService
+        .getRoomsByOwner(normalizedOwnerId)
+        .map((data) => data.map((json) => RoomModel.fromJson(json)).toList())
+        .listen(
+          (rooms) {
+            _myRooms = rooms;
+            _isLoading = false;
+            notifyListeners();
+          },
+          onError: (e) {
+            _error = 'Failed to load rooms: $e';
+            _isLoading = false;
+            notifyListeners();
+          },
+        );
 
-    _roomsStream?.listen(
-      (rooms) {
-        _myRooms = rooms;
-        _isLoading = false;
-        notifyListeners();
-      },
-      onError: (e) {
-        _error = 'Failed to load rooms: $e';
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
+    _messSubscription = _firebaseService
+        .getMessByOwner(normalizedOwnerId)
+        .map((data) => data.map((json) => MessModel.fromJson(json)).toList())
+        .listen(
+          (messList) {
+            _myMess = messList;
+            notifyListeners();
+          },
+          onError: (e) {
+            _error = 'Failed to load mess listings: $e';
+            notifyListeners();
+          },
+        );
+  }
 
-    // Listen to mess
-    _messStream = _firebaseService.getMessByOwner(ownerId).map((data) {
-      return data.map((json) => MessModel.fromJson(json)).toList();
-    });
-
-    _messStream?.listen(
-      (messList) {
-        _myMess = messList;
-        notifyListeners();
-      },
-      onError: (e) {
-        _error = 'Failed to load mess listings: $e';
-        notifyListeners();
-      },
-    );
+  void _cancelListingSubscriptions() {
+    _roomsSubscription?.cancel();
+    _messSubscription?.cancel();
+    _roomsSubscription = null;
+    _messSubscription = null;
   }
 
   // ==================== ROOM OPERATIONS ====================
 
-  /// Add a new room with image upload
+  /// Add a new room with already-uploaded image URLs
   Future<bool> addRoom({
     required String title,
     required String location,
     required double price,
+    double? priceperperson,
     required String type,
     required String contact,
     required List<String> amenities,
     required String university,
-    File? imageFile,
+    List<String> imageUrls = const [],
     String? ownerId,
+    double? latitude,
+    double? longitude,
+    String? telegramContact,
   }) async {
+    debugPrint('🏠 PROVIDER.addRoom: Starting...');
+    debugPrint('🏠 PROVIDER.addRoom: title=$title, type=$type, price=$price');
+    debugPrint(
+      '🏠 PROVIDER.addRoom: imageUrls=${imageUrls.length} URLs: $imageUrls',
+    );
+    debugPrint(
+      '🏠 PROVIDER.addRoom: university=$university, location=$location',
+    );
+
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Upload image if provided
-      String imageurl = '';
-      if (imageFile != null) {
-        imageurl = await _storageService.uploadRoomImage(file: imageFile);
-      }
+      // First image is the cover
+      final String primaryImageUrl = imageUrls.isNotEmpty
+          ? imageUrls.first
+          : '';
+      debugPrint('🏠 PROVIDER.addRoom: primaryImageUrl=$primaryImageUrl');
 
-      await _firebaseService.createRoom(
+      final docId = await _firebaseService.createRoomWithCoordinates(
         title: title,
         location: location,
         price: price,
+        priceperperson: priceperperson,
         type: type,
-        imageurl: imageurl,
+        imageurl: primaryImageUrl,
         contact: contact,
         amenities: amenities,
         university: university,
         ownerid: ownerId,
+        latitude: latitude,
+        longitude: longitude,
+        telegramPhone: telegramContact,
+        images: imageUrls,
       );
+
+      debugPrint('✅ PROVIDER.addRoom: Room created successfully! docId=$docId');
 
       _isLoading = false;
       notifyListeners();
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ PROVIDER.addRoom FAILED: $e');
+      debugPrint('❌ PROVIDER.addRoom STACK: $stackTrace');
       _error = 'Failed to add room: $e';
       _isLoading = false;
       notifyListeners();
@@ -181,13 +222,62 @@ class OwnerListingsProvider with ChangeNotifier {
     }
   }
 
-  /// Update room
+  /// Update room with Map
   Future<bool> updateRoom(String roomId, Map<String, dynamic> updates) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      await _firebaseService.updateRoom(roomId, updates);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Failed to update room: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Update room with named parameters (for AddRoomScreen editing)
+  Future<bool> updateRoomWithDetails({
+    required String roomId,
+    required String title,
+    required String location,
+    required double price,
+    double? priceperperson,
+    required String type,
+    required String contact,
+    required List<String> amenities,
+    required String university,
+    String? imageUrl,
+    double? latitude,
+    double? longitude,
+    String? telegramContact,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final updates = <String, dynamic>{
+        'title': title,
+        'location': location,
+        'price': price,
+        if (priceperperson != null) 'priceperperson': priceperperson,
+        'type': type,
+        'contact': contact,
+        'amenities': amenities,
+        'university': university,
+        if (telegramContact != null && telegramContact.isNotEmpty)
+          'telegramPhone': telegramContact,
+        if (imageUrl != null) 'imageurl': imageUrl,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+      };
+
       await _firebaseService.updateRoom(roomId, updates);
       _isLoading = false;
       notifyListeners();
@@ -258,6 +348,7 @@ class OwnerListingsProvider with ChangeNotifier {
     required String name,
     required String location,
     required double pricepermonth,
+    int? mealsPerDay,
     required String foodtype,
     required String contact,
     required List<String> menu,
@@ -281,6 +372,7 @@ class OwnerListingsProvider with ChangeNotifier {
         name: name,
         location: location,
         pricepermonth: pricepermonth,
+        mealsPerDay: mealsPerDay,
         foodtype: foodtype,
         contact: contact,
         menu: menu,
@@ -312,5 +404,11 @@ class OwnerListingsProvider with ChangeNotifier {
     _myRooms = [];
     _myMess = [];
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _cancelListingSubscriptions();
+    super.dispose();
   }
 }

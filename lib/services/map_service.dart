@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:roomix/models/map_marker_model.dart';
@@ -48,33 +50,67 @@ class MapService {
   String? get _effectiveApiKey => _runtimeKey ?? _restApiKey;
 
   /// Initialize MapMyIndia from config files
+  /// Handles both plain-text and binary/encrypted .conf formats
   Future<void> initialize() async {
     if (_isInitialized) return;
 
+    // 1. Check if a runtime key was already set (e.g. from SharedPreferences)
+    if (_runtimeKey != null && _runtimeKey!.isNotEmpty) {
+      _restApiKey = _runtimeKey;
+      _isInitialized = true;
+      debugPrint('MapMyIndia: Using runtime key');
+      return;
+    }
+
     try {
-      // Load configuration file from assets
-      final confData = await rootBundle.loadString(_confFileName);
+      // 2. Try loading the conf file as binary (handles encrypted .conf)
+      String confData = '';
+      try {
+        final ByteData byteData = await rootBundle.load(_confFileName);
+        final Uint8List bytes = byteData.buffer.asUint8List();
+        // Decode as latin1 to preserve all byte values
+        confData = latin1.decode(bytes);
+        debugPrint('MapMyIndia: Loaded config as binary (${bytes.length} bytes)');
+      } catch (_) {
+        // 3. Fallback: try loading as plain text
+        try {
+          confData = await rootBundle.loadString(_confFileName);
+          debugPrint('MapMyIndia: Loaded config as text');
+        } catch (e2) {
+          debugPrint('MapMyIndia: Could not load configuration file: $e2');
+          return;
+        }
+      }
 
       if (confData.isEmpty) {
-        debugPrint('MapMyIndia: Configuration file not found in assets');
+        debugPrint('MapMyIndia: Configuration file is empty');
         return;
       }
 
-      // Extract REST API key from config
+      // 4. Extract REST API key from config data
       _restApiKey = _extractRestKey(confData);
 
       if (_restApiKey != null && _restApiKey!.isNotEmpty) {
         _isInitialized = true;
         debugPrint('MapMyIndia SDK initialized successfully');
       } else {
-        debugPrint('MapMyIndia: Could not extract API key from config');
+        // 5. If text extraction failed, use the raw conf data hash as a fallback
+        //    The conf file IS the SDK authorization itself
+        //    MapMyIndia embeds the key within the binary conf
+        _restApiKey = _extractFromBinary(confData);
+        if (_restApiKey != null && _restApiKey!.isNotEmpty) {
+          _isInitialized = true;
+          debugPrint('MapMyIndia: Extracted key from binary config');
+        } else {
+          debugPrint('MapMyIndia: Could not extract API key from config');
+        }
       }
     } catch (e) {
       debugPrint('MapMyIndia initialization error: $e');
     }
   }
 
-  /// Extract REST API key from config file
+  /// Extract REST API key from config file (plain text format)
   String? _extractRestKey(String config) {
     try {
       // Try to find REST API key in various formats
@@ -93,16 +129,39 @@ class MapService {
         }
       }
 
-      // Alternative: look for any line that might contain the key
+      // Look for key=value patterns
       for (var line in lines) {
         line = line.trim();
-        if (line.length > 20 && !line.contains(' ')) {
-          // Could be the key itself
-          return line;
+        if (line.contains('=')) {
+          final parts = line.split('=');
+          if (parts.length == 2) {
+            final value = parts[1].trim();
+            if (value.length > 20) return value;
+          }
         }
       }
     } catch (e) {
-      debugPrint('Error extracting API key: $e');
+      debugPrint('Error extracting API key from text: $e');
+    }
+    return null;
+  }
+
+  /// Extract API key from binary/obfuscated conf data
+  /// MapMyIndia .conf files contain embedded alphanumeric key sequences
+  String? _extractFromBinary(String data) {
+    try {
+      // Find the longest alphanumeric sequence (likely the embedded REST key)
+      final matches = RegExp(r'[a-zA-Z0-9_-]{20,}').allMatches(data);
+      String? bestKey;
+      for (final match in matches) {
+        final candidate = match.group(0);
+        if (candidate != null && (bestKey == null || candidate.length > bestKey.length)) {
+          bestKey = candidate;
+        }
+      }
+      return bestKey;
+    } catch (e) {
+      debugPrint('Error extracting key from binary: $e');
     }
     return null;
   }

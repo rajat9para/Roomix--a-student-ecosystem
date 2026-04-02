@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UniversityModel {
   final String id;
   final String name;
@@ -49,16 +51,29 @@ class UniversityModel {
   }
 
   factory UniversityModel.fromFirestore(String id, Map<String, dynamic> map) {
+    // Handle case-insensitive / different field name patterns
+    String getString(String key) {
+      // Try exact key first, then common variations
+      return (map[key] ?? map[key.toLowerCase()] ?? map[key[0].toUpperCase() + key.substring(1)] ?? '').toString();
+    }
+
+    DateTime parseDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+      return DateTime.now();
+    }
+
     return UniversityModel(
       id: id,
-      name: map['name'] ?? '',
-      city: map['city'] ?? '',
-      state: map['state'] ?? '',
-      address: map['address'] ?? '',
-      description: map['description'] ?? '',
-      zipCode: map['zipCode'],
-      imageUrl: map['imageUrl'],
-      isActive: map['isActive'] ?? true,
+      name: getString('name'),
+      city: getString('city'),
+      state: getString('state'),
+      address: getString('address'),
+      description: getString('description'),
+      zipCode: map['zipCode']?.toString() ?? map['zipcode']?.toString(),
+      imageUrl: map['imageUrl']?.toString() ?? map['imageurl']?.toString(),
+      isActive: map['isActive'] ?? map['isactive'] ?? true,
 
       // Firestore doesn't store these → give defaults
       location: Location(latitude: 0, longitude: 0),
@@ -67,8 +82,8 @@ class UniversityModel {
         southWest: LatLng(latitude: 0, longitude: 0),
       ),
 
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: parseDate(map['createdAt'] ?? map['createdat']),
+      updatedAt: parseDate(map['updatedAt'] ?? map['updatedat']),
     );
   }
 

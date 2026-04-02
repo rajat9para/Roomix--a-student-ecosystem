@@ -6,7 +6,6 @@ import 'package:roomix/models/event_model.dart';
 import 'package:roomix/models/utility_model.dart';
 import 'package:roomix/models/university_model.dart';
 import 'package:roomix/services/firebase_service.dart';
-import '../models/room_model.dart';
 
 /// ApiService - Compatibility layer bridging old REST API calls to Firebase
 class ApiService {
@@ -15,56 +14,26 @@ class ApiService {
 
   // ==================== ROOMS ====================
   static Future<List<RoomModel>> getRooms() async {
-    await Future.delayed(const Duration(milliseconds: 400));
-
-    return [
-      RoomModel(
-        id: '1',
-        title: 'Bhushan Boys PG',
-        location: 'Near Graphic Era Hill University',
-        price: 4000,
-        type: 'boys',
-        imageurl: 'https://img.staticmb.com/mbphoto/pg/grd2/cropped_images/2024/Aug/16/Photo_h400_w540/GR2-458945-2223343_400_540.jpg',
-        contact: '7817823900',
-        amenities: ['wifi','food'],
-        ownerid: 'owner1',
-        university: 'Graphic Era Hill University',
-        rating: 4.5,
-      ),
-
-      RoomModel(
-        id: '2',
-        title: 'Rahtan Villa PG',
-        location: 'Clement Town, Dehradun',
-        price: 11000,
-        type: 'girls',
-        imageurl: 'https://img.staticmb.com/mbphoto/pg/grd2/cropped_images/2025/Oct/28/Photo_h400_w540/GR2-513673-2615101_400_540.jpeg',
-        contact: '9634626940',
-        amenities: ['wifi','laundry'],
-        ownerid: 'owner1',
-        university: 'Graphic Era Hill University',
-        rating: 4.2,
-      ),
-
-      RoomModel(
-        id: '3',
-        title: 'Green Arc PG',
-        location: 'Ballupur Chowk',
-        price: 5200,
-        type: 'mixed',
-        imageurl: 'https://img.staticmb.com/mbphoto/pg/grd2/cropped_images/2023/May/05/Photo_h400_w540/GR2-368841-1740665_400_540.jpeg',
-        contact: '1352751404',
-        amenities: ['wifi'],
-        ownerid: 'owner1',
-        university: 'Graphic Era Hill University',
-        rating: 4.0,
-      ),
-    ];
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('rooms')
+          .orderBy('ceratedat', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => RoomModel.fromJson({...doc.data(), 'id': doc.id}))
+          .toList();
+    } catch (e) {
+      debugPrint('Error fetching rooms: $e');
+      return [];
+    }
   }
 
   static Future<RoomModel?> getRoomById(String id) async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('rooms').doc(id).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(id)
+          .get();
       if (doc.exists) {
         return RoomModel.fromJson({...doc.data()!, 'id': doc.id});
       }
@@ -76,7 +45,10 @@ class ApiService {
   }
 
   // ==================== MESS ====================
-  static Future<Map<String, dynamic>> getMessMenu({int page = 1, int limit = 20}) async {
+  static Future<Map<String, dynamic>> getMessMenu({
+    int page = 1,
+    int limit = 20,
+  }) async {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('mess')
@@ -88,16 +60,25 @@ class ApiService {
           .toList();
       return {
         'data': items,
-        'pagination': {'currentPage': page, 'hasMore': snapshot.docs.length == limit}
+        'pagination': {
+          'currentPage': page,
+          'hasMore': snapshot.docs.length == limit,
+        },
       };
     } catch (e) {
-      return {'data': <MessModel>[], 'pagination': {'currentPage': page, 'hasMore': false}};
+      return {
+        'data': <MessModel>[],
+        'pagination': {'currentPage': page, 'hasMore': false},
+      };
     }
   }
 
   static Future<MessModel?> getMessById(String id) async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('mess').doc(id).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('mess')
+          .doc(id)
+          .get();
       if (doc.exists) {
         return MessModel.fromJson({...doc.data()!, 'id': doc.id});
       }
@@ -108,7 +89,10 @@ class ApiService {
   }
 
   // ==================== EVENTS ====================
-  static Future<Map<String, dynamic>> getEvents({int page = 1, int limit = 20}) async {
+  static Future<Map<String, dynamic>> getEvents({
+    int page = 1,
+    int limit = 20,
+  }) async {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('events')
@@ -120,10 +104,16 @@ class ApiService {
           .toList();
       return {
         'data': items,
-        'pagination': {'currentPage': page, 'hasMore': snapshot.docs.length == limit}
+        'pagination': {
+          'currentPage': page,
+          'hasMore': snapshot.docs.length == limit,
+        },
       };
     } catch (e) {
-      return {'data': <EventModel>[], 'pagination': {'currentPage': page, 'hasMore': false}};
+      return {
+        'data': <EventModel>[],
+        'pagination': {'currentPage': page, 'hasMore': false},
+      };
     }
   }
 
@@ -136,14 +126,21 @@ class ApiService {
       }
       final snapshot = await query.orderBy('createdat', descending: true).get();
       return snapshot.docs
-          .map((doc) => UtilityModel.fromJson({...(doc.data() as Map<String, dynamic>), 'id': doc.id}))
+          .map(
+            (doc) => UtilityModel.fromJson({
+              ...(doc.data() as Map<String, dynamic>),
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       return [];
     }
   }
 
-  static Future<List<UtilityModel>> getUtilitiesByCategory(String category) async {
+  static Future<List<UtilityModel>> getUtilitiesByCategory(
+    String category,
+  ) async {
     return getUtilities(category: category);
   }
 
@@ -166,7 +163,12 @@ class ApiService {
           .endAt(['$query\uf8ff'])
           .get();
       return snapshot.docs
-          .map((doc) => UtilityModel.fromJson({...(doc.data() as Map<String, dynamic>), 'id': doc.id}))
+          .map(
+            (doc) => UtilityModel.fromJson({
+              ...(doc.data() as Map<String, dynamic>),
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       return [];
@@ -175,9 +177,15 @@ class ApiService {
 
   static Future<UtilityModel?> getUtility(String id) async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('utilities').doc(id).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('utilities')
+          .doc(id)
+          .get();
       if (doc.exists) {
-        return UtilityModel.fromJson({...(doc.data() as Map<String, dynamic>), 'id': doc.id});
+        return UtilityModel.fromJson({
+          ...(doc.data() as Map<String, dynamic>),
+          'id': doc.id,
+        });
       }
       return null;
     } catch (e) {
@@ -200,7 +208,7 @@ class ApiService {
       final docRef = FirebaseFirestore.instance.collection('utilities').doc();
       // Build contact map from phone if provided
       final contactMap = contact ?? (phone != null ? {'phone': phone} : null);
-      
+
       await docRef.set({
         'name': name,
         'category': category,
@@ -218,7 +226,7 @@ class ApiService {
         'createdAt': DateTime.now().toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
       });
-      
+
       return getUtility(docRef.id);
     } catch (e) {
       debugPrint('Error creating utility: $e');
@@ -239,17 +247,23 @@ class ApiService {
     double? longitude,
   }) async {
     try {
-      final updates = <String, dynamic>{'updatedAt': DateTime.now().toIso8601String()};
-      
+      final updates = <String, dynamic>{
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+
       if (name != null) updates['name'] = name;
       if (category != null) updates['category'] = category;
       if (description != null) updates['description'] = description;
       if (address != null) updates['location.address'] = address;
       if (contact != null) updates['contact'] = contact;
       if (phone != null) updates['contact.phone'] = phone;
-      if (latitude != null) updates['location.coordinates'] = [longitude ?? 0.0, latitude];
-      
-      await FirebaseFirestore.instance.collection('utilities').doc(id).update(updates);
+      if (latitude != null)
+        updates['location.coordinates'] = [longitude ?? 0.0, latitude];
+
+      await FirebaseFirestore.instance
+          .collection('utilities')
+          .doc(id)
+          .update(updates);
       return getUtility(id);
     } catch (e) {
       debugPrint('Error updating utility: $e');
@@ -278,14 +292,14 @@ class ApiService {
           .doc(utilityId)
           .collection('reviews')
           .doc();
-      
+
       await reviewRef.set({
         'userid': userId,
         'rating': rating,
         'comment': comment,
         'createdat': FieldValue.serverTimestamp(),
       });
-      
+
       return getUtility(utilityId);
     } catch (e) {
       return null;
@@ -303,7 +317,12 @@ class ApiService {
           .where('verified', isEqualTo: false)
           .get();
       return snapshot.docs
-          .map((doc) => UtilityModel.fromJson({...(doc.data() as Map<String, dynamic>), 'id': doc.id}))
+          .map(
+            (doc) => UtilityModel.fromJson({
+              ...(doc.data() as Map<String, dynamic>),
+              'id': doc.id,
+            }),
+          )
           .toList();
     } catch (e) {
       return [];
@@ -322,7 +341,10 @@ class ApiService {
     }
   }
 
-  static Future<UtilityModel?> rejectUtility(String utilityId, {String? reason}) async {
+  static Future<UtilityModel?> rejectUtility(
+    String utilityId, {
+    String? reason,
+  }) async {
     try {
       await FirebaseFirestore.instance
           .collection('utilities')
@@ -351,7 +373,10 @@ class ApiService {
 
   static Future<UniversityModel?> getUniversityById(String id) async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('universities').doc(id).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('universities')
+          .doc(id)
+          .get();
       if (doc.exists) {
         return UniversityModel.fromJson({...doc.data()!, 'id': doc.id});
       }
@@ -360,16 +385,257 @@ class ApiService {
       return null;
     }
   }
+
+  // ==================== ROOM REVIEWS ====================
+
+  /// Add a review to a room (persists to Firestore subcollection)
+  static Future<bool> addRoomReview({
+    required String roomId,
+    required String userId,
+    required String userName,
+    required double rating,
+    required String comment,
+    String? userImage,
+  }) async {
+    try {
+      final roomDoc = await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .get();
+      if (!roomDoc.exists) return false;
+
+      final ownerId = roomDoc.data()?['ownerid']?.toString();
+      if (ownerId != null && ownerId == userId) {
+        debugPrint('⚠️ REVIEW: Owner attempted self-review for room $roomId');
+        return false;
+      }
+
+      // Write review to subcollection
+      final reviewRef = FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .collection('reviews')
+          .doc(); // auto-generate ID
+
+      await reviewRef.set({
+        'id': reviewRef.id,
+        'userid': userId,
+        'username': userName,
+        'rating': rating,
+        'comment': comment,
+        'userImage': userImage,
+        'createdat': FieldValue.serverTimestamp(),
+      });
+
+      // Recalculate average rating on the parent document
+      await _recalculateRoomRating(roomId);
+
+      debugPrint('✅ REVIEW: Room review saved to Firestore (roomId=$roomId)');
+      return true;
+    } catch (e) {
+      debugPrint('❌ REVIEW: Failed to save room review: $e');
+      return false;
+    }
+  }
+
+  /// Check if a user has already reviewed a specific room
+  static Future<bool> hasUserReviewedRoom(String roomId, String userId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .collection('reviews')
+          .where('userid', isEqualTo: userId)
+          .limit(1)
+          .get();
+      return snapshot.docs.isNotEmpty;
+    } catch (e) {
+      debugPrint('❌ REVIEW: Error checking room review: $e');
+      return false;
+    }
+  }
+
+  /// Fetch all reviews for a room from Firestore subcollection
+  static Future<List<Map<String, dynamic>>> getRoomReviews(
+    String roomId,
+  ) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .collection('reviews')
+          .orderBy('createdat', descending: true)
+          .get();
+      return snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
+    } catch (e) {
+      debugPrint('❌ REVIEW: Error fetching room reviews: $e');
+      return [];
+    }
+  }
+
+  /// Recalculate and update the average rating on a room document
+  static Future<void> _recalculateRoomRating(String roomId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .collection('reviews')
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        await FirebaseFirestore.instance.collection('rooms').doc(roomId).update(
+          {'rating': 0.0},
+        );
+        return;
+      }
+
+      double total = 0;
+      for (final doc in snapshot.docs) {
+        total += (doc.data()['rating'] as num?)?.toDouble() ?? 0.0;
+      }
+      final avg = total / snapshot.docs.length;
+
+      await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
+        'rating': double.parse(avg.toStringAsFixed(1)),
+      });
+      debugPrint(
+        '✅ RATING: Room $roomId avg rating updated to ${avg.toStringAsFixed(1)}',
+      );
+    } catch (e) {
+      debugPrint('❌ RATING: Failed to recalculate room rating: $e');
+    }
+  }
+
+  // ==================== MESS REVIEWS ====================
+
+  /// Add a review to a mess (persists to Firestore subcollection)
+  static Future<bool> addMessReview({
+    required String messId,
+    required String userId,
+    required String userName,
+    required double rating,
+    required String comment,
+  }) async {
+    try {
+      final messDoc = await FirebaseFirestore.instance
+          .collection('mess')
+          .doc(messId)
+          .get();
+      if (!messDoc.exists) return false;
+
+      final ownerId = messDoc.data()?['ownerid']?.toString();
+      if (ownerId != null && ownerId == userId) {
+        debugPrint('⚠️ REVIEW: Owner attempted self-review for mess $messId');
+        return false;
+      }
+
+      final reviewRef = FirebaseFirestore.instance
+          .collection('mess')
+          .doc(messId)
+          .collection('reviews')
+          .doc();
+
+      await reviewRef.set({
+        'id': reviewRef.id,
+        'userid': userId,
+        'username': userName,
+        'rating': rating,
+        'comment': comment,
+        'createdat': FieldValue.serverTimestamp(),
+      });
+
+      // Recalculate average rating
+      await _recalculateMessRating(messId);
+
+      debugPrint('✅ REVIEW: Mess review saved to Firestore (messId=$messId)');
+      return true;
+    } catch (e) {
+      debugPrint('❌ REVIEW: Failed to save mess review: $e');
+      return false;
+    }
+  }
+
+  /// Check if a user has already reviewed a specific mess
+  static Future<bool> hasUserReviewedMess(String messId, String userId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('mess')
+          .doc(messId)
+          .collection('reviews')
+          .where('userid', isEqualTo: userId)
+          .limit(1)
+          .get();
+      return snapshot.docs.isNotEmpty;
+    } catch (e) {
+      debugPrint('❌ REVIEW: Error checking mess review: $e');
+      return false;
+    }
+  }
+
+  /// Fetch all reviews for a mess from Firestore subcollection
+  static Future<List<Map<String, dynamic>>> getMessReviews(
+    String messId,
+  ) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('mess')
+          .doc(messId)
+          .collection('reviews')
+          .orderBy('createdat', descending: true)
+          .get();
+      return snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
+    } catch (e) {
+      debugPrint('❌ REVIEW: Error fetching mess reviews: $e');
+      return [];
+    }
+  }
+
+  /// Recalculate and update the average rating on a mess document
+  static Future<void> _recalculateMessRating(String messId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('mess')
+          .doc(messId)
+          .collection('reviews')
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        await FirebaseFirestore.instance.collection('mess').doc(messId).update({
+          'rating': 0.0,
+        });
+        return;
+      }
+
+      double total = 0;
+      for (final doc in snapshot.docs) {
+        total += (doc.data()['rating'] as num?)?.toDouble() ?? 0.0;
+      }
+      final avg = total / snapshot.docs.length;
+
+      await FirebaseFirestore.instance.collection('mess').doc(messId).update({
+        'rating': double.parse(avg.toStringAsFixed(1)),
+      });
+      debugPrint(
+        '✅ RATING: Mess $messId avg rating updated to ${avg.toStringAsFixed(1)}',
+      );
+    } catch (e) {
+      debugPrint('❌ RATING: Failed to recalculate mess rating: $e');
+    }
+  }
 }
 
-/// Fake Dio class for compatibility
+/// Fake Dio class for compatibility — only used for legacy GET calls.
+/// POST calls for reviews now go through ApiService static methods directly.
 class _FakeDio {
   Future<_FakeResponse> get(String path) async {
     final parts = path.split('/').where((p) => p.isNotEmpty).toList();
     if (parts.length >= 2) {
       final collection = parts[0];
       final docId = parts[1];
-      final doc = await FirebaseFirestore.instance.collection(collection).doc(docId).get();
+      final doc = await FirebaseFirestore.instance
+          .collection(collection)
+          .doc(docId)
+          .get();
       return _FakeResponse(
         data: doc.exists ? {...doc.data()!, 'id': doc.id} : null,
         statusCode: doc.exists ? 200 : 404,
@@ -378,7 +644,12 @@ class _FakeDio {
     return _FakeResponse(data: null, statusCode: 404);
   }
 
+  /// Legacy post — should NOT be used for reviews anymore.
+  /// Reviews should use ApiService.addRoomReview / ApiService.addMessReview.
   Future<_FakeResponse> post(String path, {dynamic data}) async {
+    debugPrint(
+      '⚠️ _FakeDio.post called for $path — this is a legacy stub. Use ApiService methods instead.',
+    );
     return _FakeResponse(data: {'success': true}, statusCode: 201);
   }
 }

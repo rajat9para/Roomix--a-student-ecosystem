@@ -44,11 +44,13 @@ class RoomReview {
 
 /// Room Model matching Firebase 'rooms' collection fields exactly
 /// Fields: amenities, ceratedat, contact, imageurl, location, ownerid, price, title, type, university
+/// Additional: latitude, longitude, telegramPhone for enhanced features
 class RoomModel {
   final String id;
   final String title;
   final String location;
   final double price;
+  final double? priceperperson;
   final String type;
   final String imageurl;
   final String contact;
@@ -56,19 +58,22 @@ class RoomModel {
   final String ownerid;
   final String university;
   final DateTime? ceratedat;
-  
+
   // Additional fields for UI compatibility
   final double rating;
   final bool verified;
   List<RoomReview> reviews;
   final double? latitude;
   final double? longitude;
+  final String? telegramPhone;
+  final List<String> images; // All uploaded image URLs
 
   RoomModel({
     required this.id,
     required this.title,
     required this.location,
     required this.price,
+    this.priceperperson,
     required this.type,
     required this.imageurl,
     required this.contact,
@@ -81,10 +86,14 @@ class RoomModel {
     List<RoomReview>? reviews,
     this.latitude,
     this.longitude,
-  }) : reviews = reviews ?? [];
+    this.telegramPhone,
+    List<String>? images,
+  }) : reviews = reviews ?? [],
+       images = images ?? [];
 
   /// Alias for imageurl (for backward compatibility)
   String get image => imageurl;
+  double? get pricePerPerson => priceperperson;
 
   factory RoomModel.fromJson(Map<String, dynamic> json) {
     DateTime? parseDate;
@@ -101,6 +110,9 @@ class RoomModel {
       title: json['title'] ?? '',
       location: json['location'] ?? '',
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      priceperperson:
+          (json['priceperperson'] as num?)?.toDouble() ??
+          (json['pricePerPerson'] as num?)?.toDouble(),
       type: json['type'] ?? 'single',
       imageurl: json['imageurl'] ?? '',
       contact: json['contact'] ?? '',
@@ -110,10 +122,20 @@ class RoomModel {
       ceratedat: parseDate,
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       verified: json['verified'] ?? false,
-
-      reviews: (json['reviews'] as List<dynamic>?)
-          ?.map((e) => RoomReview.fromJson(e))
-          .toList() ?? [],
+      reviews:
+          (json['reviews'] as List<dynamic>?)
+              ?.map((e) => RoomReview.fromJson(e))
+              .toList() ??
+          [],
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      telegramPhone:
+          json['telegramPhone'] ??
+          json['telegram_phone'] ??
+          json['telegramUsername'] ??
+          json['telegram_username'] ??
+          json['telegramContact'],
+      images: List<String>.from(json['images'] ?? []),
     );
   }
 
@@ -122,13 +144,20 @@ class RoomModel {
       'title': title,
       'location': location,
       'price': price,
+      if (priceperperson != null) 'priceperperson': priceperperson,
       'type': type,
       'imageurl': imageurl,
       'contact': contact,
       'amenities': amenities,
       'ownerid': ownerid,
       'university': university,
-      'ceratedat': ceratedat != null ? Timestamp.fromDate(ceratedat!) : Timestamp.now(),
+      'ceratedat': ceratedat != null
+          ? Timestamp.fromDate(ceratedat!)
+          : Timestamp.now(),
+      'latitude': latitude,
+      'longitude': longitude,
+      'telegramPhone': telegramPhone,
+      'images': images,
     };
   }
 
@@ -139,6 +168,7 @@ class RoomModel {
     String? imageurl,
     String? type,
     double? price,
+    double? priceperperson,
     double? rating,
     String? contact,
     bool? verified,
@@ -149,6 +179,8 @@ class RoomModel {
     DateTime? ceratedat,
     String? ownerid,
     String? university,
+    String? telegramPhone,
+    List<String>? images,
   }) {
     return RoomModel(
       id: id ?? this.id,
@@ -157,6 +189,7 @@ class RoomModel {
       imageurl: imageurl ?? this.imageurl,
       type: type ?? this.type,
       price: price ?? this.price,
+      priceperperson: priceperperson ?? this.priceperperson,
       contact: contact ?? this.contact,
       amenities: amenities ?? this.amenities,
       ownerid: ownerid ?? this.ownerid,
@@ -167,6 +200,14 @@ class RoomModel {
       reviews: reviews ?? this.reviews,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      telegramPhone: telegramPhone ?? this.telegramPhone,
+      images: images ?? this.images,
     );
   }
+
+  /// Check if location coordinates are available
+  bool get hasCoordinates => latitude != null && longitude != null;
+
+  /// Check if Telegram contact is available
+  bool get hasTelegram => telegramPhone != null && telegramPhone!.isNotEmpty;
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:roomix/providers/auth_provider.dart';
 import 'package:roomix/services/api_service.dart';
@@ -133,10 +132,14 @@ class _MessScreenState extends State<MessScreen> {
     try {
       final response = await ApiService.getMessMenu(page: page);
       
-      if (response['mess'] != null) {
-        final newItems = (response['mess'] as List)
-            .map((e) => MessModel.fromJson(e))
-            .toList();
+      if (response['data'] != null) {
+        final dataList = response['data'];
+        final List<MessModel> newItems;
+        if (dataList is List<MessModel>) {
+          newItems = dataList;
+        } else {
+          newItems = (dataList as List).map((e) => MessModel.fromJson(e as Map<String, dynamic>)).toList();
+        }
         
         setState(() {
           if (page == 1) {
@@ -152,7 +155,8 @@ class _MessScreenState extends State<MessScreen> {
             _allMenuItems.addAll(newItems);
           }
           _currentPage = response['pagination']?['currentPage'] ?? 1;
-          _totalPages = response['pagination']?['totalPages'] ?? 1;
+          final hasMore = response['pagination']?['hasMore'] ?? false;
+          _totalPages = hasMore ? _currentPage + 1 : _currentPage;
         });
         _applyFilters();
       }
@@ -182,57 +186,71 @@ class _MessScreenState extends State<MessScreen> {
     _authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Mess Services'),
-        backgroundColor: AppColors.darkBackground,
+        title: const Text(
+          'Mess Services',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: AppColors.background,
         elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.primary),
         actions: [
           Badge(
             label: Text('${_getActiveFilterCount()}'),
             isLabelVisible: _getActiveFilterCount() > 0,
             child: IconButton(
-              icon: const Icon(Icons.tune),
+              icon: const Icon(Icons.tune, color: AppColors.primary),
               onPressed: _showFilterBottomSheet,
             ),
           ),
         ],
       ),
       body: Container(
-        color: AppColors.darkBackground,
+        color: AppColors.background,
         child: Column(
           children: [
             // Search bar
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Search mess...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                  prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.6)),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          color: Colors.white.withOpacity(0.6),
-                          onPressed: () {
-                            _searchController.clear();
-                            _applyFilters();
-                          },
-                        )
-                      : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2),
+              padding: const EdgeInsets.all(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: AppColors.textDark),
+                  decoration: InputDecoration(
+                    hintText: 'Search mess...',
+                    hintStyle: TextStyle(color: AppColors.textGray),
+                    prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: AppColors.textGray),
+                            onPressed: () {
+                              _searchController.clear();
+                              _applyFilters();
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
                   ),
                 ),
               ),
@@ -297,7 +315,7 @@ class _MessScreenState extends State<MessScreen> {
                 child: Text(
                   '${_filteredMenuItems.length} mess${_filteredMenuItems.length != 1 ? 'es' : ''} found',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: AppColors.textGray,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -422,14 +440,14 @@ class _MessScreenState extends State<MessScreen> {
           Icon(
             Icons.restaurant_menu,
             size: 80,
-            color: Colors.white.withOpacity(0.3),
+            color: AppColors.textGray.withOpacity(0.4),
           ),
           const SizedBox(height: 16),
           Text(
             _searchController.text.isNotEmpty ? 'No mess match your search' : 'No mess available',
             style: const TextStyle(
               fontSize: 18,
-              color: Colors.white,
+              color: AppColors.textDark,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -438,7 +456,7 @@ class _MessScreenState extends State<MessScreen> {
             'Try adjusting your filters or search criteria',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.white.withOpacity(0.6),
+              color: AppColors.textGray,
             ),
           ),
           const SizedBox(height: 24),
@@ -455,9 +473,7 @@ class _MessScreenState extends State<MessScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                ),
+                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
@@ -482,14 +498,14 @@ class _MessScreenState extends State<MessScreen> {
           Icon(
             Icons.error_outline,
             size: 80,
-            color: Colors.white.withOpacity(0.3),
+            color: AppColors.textGray.withOpacity(0.4),
           ),
           const SizedBox(height: 16),
           const Text(
             'Error loading mess services',
             style: TextStyle(
               fontSize: 18,
-              color: Colors.white,
+              color: AppColors.textDark,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -499,7 +515,7 @@ class _MessScreenState extends State<MessScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.white.withOpacity(0.6),
+              color: AppColors.textGray,
             ),
           ),
           const SizedBox(height: 24),
@@ -508,9 +524,7 @@ class _MessScreenState extends State<MessScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                ),
+                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
@@ -531,32 +545,26 @@ class _MessScreenState extends State<MessScreen> {
     return GestureDetector(
       onTap: () => SmoothNavigation.push(context, MessDetailScreen(mess: item)),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withOpacity(0.15),
-            width: 1.5,
+            color: AppColors.border.withOpacity(0.5),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withOpacity(0.04),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              color: Colors.white.withOpacity(0.05),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
                   // Mess Image
-                  if (item.image != null)
+                  if (item.image.isNotEmpty)
                     Stack(
                       children: [
                         ClipRRect(
@@ -568,21 +576,14 @@ class _MessScreenState extends State<MessScreen> {
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(
                               height: 160,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.white.withOpacity(0.1),
-                                    Colors.white.withOpacity(0.05),
-                                  ],
-                                ),
-                              ),
+                              color: AppColors.background,
                               child: const Center(
                                 child: SizedBox(
                                   width: 30,
                                   height: 30,
                                   child: CircularProgressIndicator(
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                      Color(0xFF8B5CF6),
+                                      AppColors.primary,
                                     ),
                                   ),
                                 ),
@@ -590,18 +591,11 @@ class _MessScreenState extends State<MessScreen> {
                             ),
                             errorWidget: (context, url, error) => Container(
                               height: 160,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.white.withOpacity(0.1),
-                                    Colors.white.withOpacity(0.05),
-                                  ],
-                                ),
-                              ),
+                              color: AppColors.background,
                               child: const Icon(
                                 Icons.image_not_supported,
                                 size: 40,
-                                color: Color(0xFF8B5CF6),
+                                color: AppColors.primary,
                               ),
                             ),
                           ),
@@ -611,33 +605,36 @@ class _MessScreenState extends State<MessScreen> {
                           top: 12,
                           right: 12,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.2),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star, size: 14, color: Colors.amber),
+                            const SizedBox(width: 4),
+                            Text(
+                              item.rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textDark,
                               ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.star, size: 14, color: Colors.amber),
-                                const SizedBox(width: 4),
-                                Text(
-                                  item.rating.toStringAsFixed(1),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
+                  ],
+                ),
                   
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -645,120 +642,103 @@ class _MessScreenState extends State<MessScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Mess Name
-                        Text(
-                          item.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                  Text(
+                    item.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                         const SizedBox(height: 8),
                         
-                        // Price
-                        ShaderMask(
-                          shaderCallback: (bounds) => const LinearGradient(
-                            colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                          ).createShader(bounds),
-                          child: Text(
-                            '₹${item.price.toStringAsFixed(0)}/month',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
+                  // Price
+                  Text(
+                    '₹${item.price.toStringAsFixed(0)}/month',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
                         const SizedBox(height: 10),
                         
                         // Specialties
-                        if (item.specialities != null && item.specialities!.isNotEmpty)
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: item.specialities!.take(2).map((spec) => Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: const Color(0xFF8B5CF6).withOpacity(0.5),
-                                  width: 1,
-                                ),
-                                color: const Color(0xFF8B5CF6).withOpacity(0.1),
-                              ),
-                              child: Text(
-                                spec,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            )).toList(),
+                  if (item.specialities != null && item.specialities!.isNotEmpty)
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: item.specialities!.take(2).map((spec) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          color: AppColors.primary.withOpacity(0.08),
+                          border: Border.all(
+                            color: AppColors.primary.withOpacity(0.2),
+                            width: 1,
                           ),
+                        ),
+                        child: Text(
+                          spec,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      )).toList(),
+                    ),
                         const SizedBox(height: 12),
                         
                         // Timings
-                        if (item.openingTime != null && item.closingTime != null)
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.access_time,
-                                size: 14,
-                                color: Colors.white.withOpacity(0.6),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${item.openingTime} - ${item.closingTime}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withOpacity(0.7),
-                                ),
-                              ),
-                            ],
-                          ),
-                        const SizedBox(height: 12),
-                        
-                        // CTA Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                              ),
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => SmoothNavigation.push(context, MessDetailScreen(mess: item)),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 12),
-                                  child: Center(
-                                    child: Text(
-                                      'View Details',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                  if (item.openingTime != null && item.closingTime != null)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: 14,
+                          color: AppColors.textGray,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${item.openingTime} - ${item.closingTime}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textGray,
                           ),
                         ),
                       ],
+                    ),
+                        const SizedBox(height: 12),
+                        
+                  // CTA Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => SmoothNavigation.push(context, MessDetailScreen(mess: item)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'View Details',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

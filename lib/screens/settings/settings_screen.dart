@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:roomix/providers/auth_provider.dart';
 import 'package:roomix/constants/app_colors.dart';
+import 'package:roomix/screens/auth/auth_gate.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -15,7 +15,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _emailNotifications = true;
   bool _pushNotifications = true;
   bool _showLastSeen = true;
-  bool _allowMessagesFromUnknown = true;
   bool _isLoading = false;
 
   @override
@@ -25,14 +24,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _loadSettings() {
-    final auth = context.read<AuthProvider>();
-    final settings = auth.currentUser?.notificationSettings;
-    final privacy = auth.currentUser?.privacySettings;
+    // Default values
     setState(() {
-      _emailNotifications = settings?['emailNotifications'] ?? true;
-      _pushNotifications = settings?['pushNotifications'] ?? true;
-      _showLastSeen = privacy?['showLastSeen'] ?? true;
-      _allowMessagesFromUnknown = privacy?['allowMessagesFromUnknown'] ?? true;
+      _emailNotifications = true;
+      _pushNotifications = true;
+      _showLastSeen = true;
     });
   }
 
@@ -40,29 +36,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final auth = context.read<AuthProvider>();
     setState(() => _isLoading = true);
     try {
-      await auth.updateSettings({
+      await auth.updateProfile({
         'notificationSettings': {
           'emailNotifications': _emailNotifications,
           'pushNotifications': _pushNotifications,
         },
-        'privacySettings': {
-          'showLastSeen': _showLastSeen,
-          'allowMessagesFromUnknown': _allowMessagesFromUnknown,
-        }
+        'privacySettings': {'showLastSeen': _showLastSeen},
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Settings saved successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     } finally {
       if (mounted) {
@@ -75,14 +68,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Confirm Logout',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: const Text(
           'Are you sure you want to logout?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppColors.textGray),
         ),
         actions: [
           TextButton(
@@ -91,7 +88,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+            child: const Text(
+              'Logout',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -99,9 +99,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (confirmed ?? false) {
       final auth = context.read<AuthProvider>();
-      await auth.logout();
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+      try {
+        await auth.logout();
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const AuthGate()),
+            (_) => false,
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
       }
     }
   }
@@ -109,243 +119,181 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'Settings',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: AppColors.textDark,
           ),
         ),
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: AppColors.primary),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.backgroundGradient,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Notifications Section
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Section Header
-                    Text(
-                      'Notifications',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
 
-                    // Glass morphic card for notifications
-                    ClipRRect(
+            // Notifications Section
+            _buildSectionHeader('Notifications'),
+            const SizedBox(height: 8),
+            _buildCard([
+              _buildSettingsTile(
+                icon: Icons.email_outlined,
+                title: 'Email Notifications',
+                subtitle: 'Receive notifications via email',
+                value: _emailNotifications,
+                onChanged: (v) => setState(() => _emailNotifications = v),
+              ),
+              _buildDivider(),
+              _buildSettingsTile(
+                icon: Icons.notifications_outlined,
+                title: 'Push Notifications',
+                subtitle: 'Receive push notifications',
+                value: _pushNotifications,
+                onChanged: (v) => setState(() => _pushNotifications = v),
+              ),
+            ]),
+
+            const SizedBox(height: 24),
+
+            // Privacy Section
+            _buildSectionHeader('Privacy & Security'),
+            const SizedBox(height: 8),
+            _buildCard([
+              _buildSettingsTile(
+                icon: Icons.visibility_outlined,
+                title: 'Show Last Seen',
+                subtitle: 'Let others see when you were last active',
+                value: _showLastSeen,
+                onChanged: (v) => setState(() => _showLastSeen = v),
+              ),
+            ]),
+
+            const SizedBox(height: 32),
+
+            // Save Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _saveSettings,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.15),
-                              width: 1.5,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
-                          child: Column(
-                            children: [
-                              _buildSettingsTile(
-                                icon: Icons.email,
-                                title: 'Email Notifications',
-                                subtitle: 'Receive notifications via email',
-                                value: _emailNotifications,
-                                onChanged: (v) => setState(() => _emailNotifications = v),
-                              ),
-                              Divider(
-                                color: Colors.white.withOpacity(0.1),
-                                height: 0,
-                              ),
-                              _buildSettingsTile(
-                                icon: Icons.notifications,
-                                title: 'Push Notifications',
-                                subtitle: 'Receive push notifications',
-                                value: _pushNotifications,
-                                onChanged: (v) => setState(() => _pushNotifications = v),
-                              ),
-                            ],
+                        )
+                      : const Text(
+                          'Save Changes',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Privacy Section
-                    Text(
-                      'Privacy & Security',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Glass morphic card for privacy
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.15),
-                              width: 1.5,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            children: [
-                              _buildSettingsTile(
-                                icon: Icons.remove_red_eye,
-                                title: 'Show Last Seen',
-                                subtitle: 'Let others see when you were last active',
-                                value: _showLastSeen,
-                                onChanged: (v) => setState(() => _showLastSeen = v),
-                              ),
-                              Divider(
-                                color: Colors.white.withOpacity(0.1),
-                                height: 0,
-                              ),
-                              _buildSettingsTile(
-                                icon: Icons.message,
-                                title: 'Messages from Unknown',
-                                subtitle: 'Allow messages from people you don\'t know',
-                                value: _allowMessagesFromUnknown,
-                                onChanged: (v) => setState(() => _allowMessagesFromUnknown = v),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
                 ),
               ),
+            ),
 
-              // Action Buttons
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Save Button
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-                        ),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _isLoading ? null : _saveSettings,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            child: Center(
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Save Changes',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ),
+            const SizedBox(height: 12),
+
+            // Logout Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout, color: AppColors.error),
+                  label: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 12),
-
-                    // Logout Button
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.red.withOpacity(0.5),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _logout,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            child: Center(
-                              child: Text(
-                                'Logout',
-                                style: TextStyle(
-                                  color: Colors.red.shade400,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.error),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // App Info
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Roomix v1.0.0',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withOpacity(0.5),
                   ),
                 ),
               ),
+            ),
 
-              const SizedBox(height: 20),
-            ],
+            const SizedBox(height: 24),
+
+            // App Info
+            Center(
+              child: Text(
+                'Roomix v2.4.0',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textGray.withOpacity(0.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textGray.withOpacity(0.7),
+            letterSpacing: 1,
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildCard(List<Widget> children) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border.withOpacity(0.5)),
+        ),
+        child: Column(children: children),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Divider(height: 1, color: AppColors.border.withOpacity(0.5));
   }
 
   Widget _buildSettingsTile({
@@ -362,14 +310,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF8B5CF6).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: const Color(0xFF8B5CF6),
-            ),
+            child: Icon(icon, size: 20, color: AppColors.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -381,16 +325,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppColors.textDark,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withOpacity(0.6),
-                  ),
+                  style: TextStyle(fontSize: 12, color: AppColors.textGray),
                 ),
               ],
             ),
@@ -398,7 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFF8B5CF6),
+            activeColor: AppColors.primary,
             inactiveThumbColor: Colors.grey,
           ),
         ],

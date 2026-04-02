@@ -8,6 +8,7 @@ class RoommateProfile {
   final String username;
   final String bio;
   final String college;
+  final String course;
   final String courseYear;
   final String gender;
   final List<String> interests;
@@ -23,6 +24,7 @@ class RoommateProfile {
     required this.username,
     required this.bio,
     required this.college,
+    this.course = '',
     required this.courseYear,
     required this.gender,
     required this.interests,
@@ -55,6 +57,7 @@ class RoommateProfile {
       username: json['username'] ?? '',
       bio: json['bio'] ?? '',
       college: json['college'] ?? '',
+      course: json['course'] ?? '',
       courseYear: json['courseYear'] ?? '',
       gender: json['gender'] ?? 'other',
       interests: List<String>.from(json['interests'] ?? []),
@@ -70,6 +73,7 @@ class RoommateProfile {
       'username': username,
       'bio': bio,
       'college': college,
+      'course': course,
       'courseYear': courseYear,
       'gender': gender,
       'interests': interests,
@@ -84,6 +88,7 @@ class RoommateProfile {
     String? username,
     String? bio,
     String? college,
+    String? course,
     String? courseYear,
     String? gender,
     List<String>? interests,
@@ -97,6 +102,7 @@ class RoommateProfile {
       username: username ?? this.username,
       bio: bio ?? this.bio,
       college: college ?? this.college,
+      course: course ?? this.course,
       courseYear: courseYear ?? this.courseYear,
       gender: gender ?? this.gender,
       interests: interests ?? this.interests,

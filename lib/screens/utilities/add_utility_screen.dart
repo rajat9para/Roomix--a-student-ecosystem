@@ -116,13 +116,9 @@ class _AddUtilityScreenState extends State<AddUtilityScreen> {
         description: _descriptionController.text.isNotEmpty
             ? _descriptionController.text
             : null,
-        contact: {
-          if (_phoneController.text.isNotEmpty)
-            'phone': _phoneController.text,
-          if (_emailController.text.isNotEmpty) 'email': _emailController.text,
-          if (_websiteController.text.isNotEmpty)
-            'website': _websiteController.text,
-        },
+        phone: _phoneController.text.isNotEmpty
+            ? _phoneController.text
+            : null,
       );
 
       if (mounted) {

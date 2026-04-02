@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class LostItemModel {
   final String id;
   final String title;
@@ -31,22 +33,36 @@ class LostItemModel {
     required this.updatedAt,
   });
 
+  /// Safely parse a date field that could be a Timestamp, String, or null
+  static DateTime _parseDate(dynamic value, {DateTime? fallback}) {
+    if (value == null) return fallback ?? DateTime.now();
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (_) {
+        return fallback ?? DateTime.now();
+      }
+    }
+    return fallback ?? DateTime.now();
+  }
+
   factory LostItemModel.fromJson(Map<String, dynamic> json) {
     return LostItemModel(
-      id: json['_id'] ?? json['id'],
-      title: json['title'],
-      description: json['description'],
-      status: json['status'],
-      date: DateTime.parse(json['date']),
+      id: json['_id'] ?? json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      status: json['status'] ?? 'Lost',
+      date: _parseDate(json['date']),
       location: json['location'],
       image: json['image'],
-      contact: json['contact'],
-      userId: json['user']?['_id'] ?? json['user'],
+      contact: json['contact'] ?? '',
+      userId: json['userId'] ?? json['user']?['_id'] ?? json['user'],
       claimStatus: json['claimStatus'] ?? 'Unclaimed',
       claimedBy: json['claimedBy']?['_id'] ?? json['claimedBy'],
-      claimDate: json['claimDate'] != null ? DateTime.parse(json['claimDate']) : null,
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
+      claimDate: json['claimDate'] != null ? _parseDate(json['claimDate']) : null,
+      createdAt: _parseDate(json['createdAt']),
+      updatedAt: _parseDate(json['updatedAt']),
     );
   }
 

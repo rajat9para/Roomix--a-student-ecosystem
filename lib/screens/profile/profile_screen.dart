@@ -5,8 +5,18 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:roomix/providers/auth_provider.dart';
 import 'package:roomix/constants/app_colors.dart';
+import 'package:roomix/screens/auth/auth_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:roomix/screens/splash_screen.dart';
+import 'package:roomix/screens/bookmarks/bookmarks_screen.dart';
+import 'package:roomix/screens/profile/my_listings_screen.dart';
+import 'package:roomix/screens/profile/account_settings_screen.dart';
+import 'package:roomix/screens/profile/help_support_screen.dart';
+import 'package:roomix/screens/roommate_finder/profile_creation_screen.dart';
+import 'package:roomix/screens/settings/settings_screen.dart';
+import 'package:roomix/screens/profile/account_settings_screen.dart';
+import 'package:roomix/services/telegram_service.dart';
+import 'package:roomix/utils/smooth_navigation.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -21,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _yearController = TextEditingController();
   final _collegeController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _telegramController = TextEditingController();
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
@@ -35,6 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _yearController.text = user?.year ?? '';
     _collegeController.text = user?.collegeName ?? '';
     _phoneController.text = user?.contactNumber ?? '';
+    _telegramController.text = user?.telegramPhone ?? '';
     _loadSavedImage();
   }
 
@@ -45,10 +57,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _yearController.dispose();
     _collegeController.dispose();
     _phoneController.dispose();
+    _telegramController.dispose();
     super.dispose();
   }
 
   Future<void> _loadSavedImage() async {
+    final auth = context.read<AuthProvider>();
+    final user = auth.currentUser;
+    // If we already have a network image, prioritize that over the local cache
+    if (user != null &&
+        user.profilePicture != null &&
+        user.profilePicture!.isNotEmpty) {
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profile_image_path');
 
@@ -60,11 +82,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
     if (picked != null) {
       setState(() {
         _imageFile = File(picked.path);
       });
+      // Auto-upload immediately after picking
+      await _uploadImage();
     }
   }
 
@@ -74,6 +101,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final auth = context.read<AuthProvider>();
+      await auth.uploadProfileImage(_imageFile!.path);
+
+      // Also save locally for quick access
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('profile_image_path', _imageFile!.path);
 
@@ -85,7 +116,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       }
-    } catch (e) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
 
     setState(() => _isLoading = false);
   }
@@ -96,29 +136,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return 0.0;
 
     int totalPoints = 0;
-    int maxPoints = 100;
+    // Baseline: name + email always filled at registration = 15%
+    if (user.name.isNotEmpty) totalPoints += 8;
+    if (user.email.isNotEmpty) totalPoints += 7;
 
-    // Basic Info (40%)
-    if (user.name.isNotEmpty) totalPoints += 20;
-    if (user.email.isNotEmpty) totalPoints += 20;
+    // Academic (40%)
+    if (user.university != null && user.university!.isNotEmpty)
+      totalPoints += 15;
+    if (user.course != null && user.course!.isNotEmpty) totalPoints += 13;
+    if (user.year != null && user.year!.isNotEmpty) totalPoints += 12;
 
-    // Academic Info (30%)
-    if (user.university != null && user.university!.isNotEmpty) totalPoints += 10;
-    if (user.course != null && user.course!.isNotEmpty) totalPoints += 10;
-    if (user.year != null && user.year!.isNotEmpty) totalPoints += 10;
-
-    // Personal Info (30%)
+    // Personal (45%)
     if (user.phone != null && user.phone!.isNotEmpty) totalPoints += 15;
-    if (user.profilePicture != null && user.profilePicture!.isNotEmpty) totalPoints += 15;
+    if (user.profilePicture != null && user.profilePicture!.isNotEmpty)
+      totalPoints += 15;
+    if (user.telegramPhone != null && user.telegramPhone!.isNotEmpty)
+      totalPoints += 15;
 
-    return totalPoints / maxPoints;
+    return totalPoints / 100;
   }
 
   Future<void> _saveProfile() async {
     if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Name cannot be empty')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Name cannot be empty')));
       return;
     }
 
@@ -129,8 +171,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'name': _nameController.text.trim(),
         'course': _courseController.text.trim(),
         'year': _yearController.text.trim(),
-        'university': _collegeController.text.trim(), // Changed key to match UserModel
-        'phone': _phoneController.text.trim(),       // Changed key to match UserModel
+        'university': _collegeController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'telegramPhone': TelegramService.formatPhone(_telegramController.text),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -142,9 +185,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     } finally {
       if (mounted) {
@@ -154,7 +197,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
-
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.currentUser;
@@ -183,9 +225,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: AppColors.primary),
-            onPressed: () {
-              // Navigate to settings
-            },
+            onPressed: () =>
+                SmoothNavigation.push(context, const SettingsScreen()),
           ),
         ],
       ),
@@ -218,9 +259,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             radius: 52,
                             backgroundColor: AppColors.background,
                             backgroundImage: _imageFile != null
-                                ? FileImage(_imageFile!)
+                                ? FileImage(_imageFile!) as ImageProvider
+                                : (user != null &&
+                                      user.profilePicture != null &&
+                                      user.profilePicture!.isNotEmpty)
+                                ? NetworkImage(user.profilePicture!)
+                                      as ImageProvider
                                 : null,
-                            child: _imageFile == null
+                            child:
+                                (_imageFile == null &&
+                                    (user == null ||
+                                        user.profilePicture == null ||
+                                        user.profilePicture!.isEmpty))
                                 ? Icon(
                                     Icons.person,
                                     size: 48,
@@ -244,7 +294,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               padding: const EdgeInsets.all(6),
                               child: const Icon(
-                                'create' == 'create' ? Icons.edit : Icons.edit, // Using literal check to force icon usage if needed
+                                'create' == 'create'
+                                    ? Icons.edit
+                                    : Icons
+                                          .edit, // Using literal check to force icon usage if needed
                                 size: 14,
                                 color: Colors.white,
                               ),
@@ -266,7 +319,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 4),
                   // Role Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -286,10 +342,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     user == null
                         ? 'Campus ID: N/A'
                         : 'Campus ID: #${user.id.substring(0, min(8, user.id.length)).toUpperCase()}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textGray,
-                    ),
+                    style: TextStyle(fontSize: 13, color: AppColors.textGray),
                   ),
                 ],
               ),
@@ -299,18 +352,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (_imageFile != null)
               Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : _uploadImage,
                     icon: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.upload),
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.upload),
                     label: Text(_isLoading ? 'Uploading...' : 'Update Picture'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -326,68 +385,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             const SizedBox(height: 16),
 
-            // Profile Completeness Card
+            // ─────────── YOUR DETAILS CARD ───────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
-                padding: const EdgeInsets.all(16),
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.border.withOpacity(0.5),
-                  ),
+                  border: Border.all(color: AppColors.border.withOpacity(0.5)),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Profile Completeness',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textDark,
-                              ),
+                        const Text(
+                          'Your Details',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => SmoothNavigation.push(
+                            context,
+                            const AccountSettingsScreen(),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              percentage < 100
-                                ? 'Complete your profile for better experience'
-                                : 'Your profile is looking great!',
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Edit',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: AppColors.textGray,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
                               ),
                             ),
-                          ],
-                        ),
-                        Text(
-                          '$percentage%',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: completeness == 1.0 ? AppColors.success : AppColors.primary,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: completeness,
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          completeness == 1.0 ? AppColors.success : AppColors.primary
-                        ),
-                        minHeight: 6,
-                      ),
+                    const SizedBox(height: 16),
+                    _buildDetailRow(
+                      Icons.person_outline,
+                      'Name',
+                      user.name.isNotEmpty ? user.name : 'Not set',
+                    ),
+                    _buildDetailRow(
+                      Icons.school_outlined,
+                      'University',
+                      user.university ?? 'Not set',
+                    ),
+                    _buildDetailRow(
+                      Icons.menu_book_outlined,
+                      'Course',
+                      user.course ?? 'Not set',
+                    ),
+                    _buildDetailRow(
+                      Icons.calendar_today_outlined,
+                      'Year',
+                      user.year != null && user.year!.isNotEmpty
+                          ? user.year!
+                          : 'Not set',
+                    ),
+                    _buildDetailRow(Icons.email_outlined, 'Email', user.email),
+                    _buildDetailRow(
+                      Icons.telegram,
+                      'Telegram',
+                      user.telegramPhone ?? 'Not set',
                     ),
                   ],
                 ),
@@ -425,29 +501,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _buildMenuItem(
                           icon: Icons.bookmark_outline,
                           title: 'My Bookmarks',
-                          badge: '12',
-                          onTap: () {},
+                          onTap: () => SmoothNavigation.push(
+                            context,
+                            const BookmarksScreen(),
+                          ),
                         ),
-                        Divider(height: 1, color: AppColors.border.withOpacity(0.5)),
-                        _buildMenuItem(
-                          icon: Icons.list_alt_outlined,
-                          title: 'My Listings',
-                          onTap: () {},
-                        ),
-                        Divider(height: 1, color: AppColors.border.withOpacity(0.5)),
-                        _buildMenuItem(
-                          icon: Icons.group_outlined,
-                          title: 'Roommate Preferences',
-                          trailing: const Text(
-                            'SET UP',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
+                        // Only show My Listings for owners, not students
+                        if (user.role != 'student') ...[
+                          Divider(
+                            height: 1,
+                            color: AppColors.border.withOpacity(0.5),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.list_alt_outlined,
+                            title: 'My Listings',
+                            onTap: () => SmoothNavigation.push(
+                              context,
+                              const MyListingsScreen(),
                             ),
                           ),
-                          onTap: () {},
-                        ),
+                        ],
+                        if (user.role == 'student') ...[
+                          Divider(
+                            height: 1,
+                            color: AppColors.border.withOpacity(0.5),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.group_outlined,
+                            title: 'Roommate Preferences',
+                            trailing: Text(
+                              user.university != null &&
+                                      user.university!.isNotEmpty
+                                  ? 'UPDATE'
+                                  : 'SET UP',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            onTap: () => SmoothNavigation.push(
+                              context,
+                              const ProfileCreationScreen(isEditing: true),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -487,14 +585,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           icon: Icons.person_outline,
                           title: 'Account Settings',
                           iconColor: AppColors.textGray,
-                          onTap: () {},
+                          onTap: () => SmoothNavigation.push(
+                            context,
+                            const AccountSettingsScreen(),
+                          ),
                         ),
-                        Divider(height: 1, color: AppColors.border.withOpacity(0.5)),
+                        Divider(
+                          height: 1,
+                          color: AppColors.border.withOpacity(0.5),
+                        ),
                         _buildMenuItem(
                           icon: Icons.help_center_outlined,
                           title: 'Help & Support',
                           iconColor: AppColors.textGray,
-                          onTap: () {},
+                          onTap: () => SmoothNavigation.push(
+                            context,
+                            const HelpSupportScreen(),
+                          ),
                         ),
                       ],
                     ),
@@ -511,13 +618,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-    onPressed: () async {
-    await context.read<AuthProvider>().logout();
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        title: const Text('Confirm Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+                        content: const Text('Are you sure you want to logout?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Logout', style: TextStyle(color: AppColors.error)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed != true) return;
+                    final authRef = context.read<AuthProvider>();
+                    try {
+                      await authRef.logout();
+                      if (!mounted) return;
+                      // Use pushAndRemoveUntil to force fresh AuthGate
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const AuthGate()),
+                        (_) => false,
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Logout failed: $e')),
+                      );
+                    }
+                  },
 
-    if (!mounted) return;
-    },
-
-    icon: const Icon(Icons.logout, color: AppColors.error),
+                  icon: const Icon(Icons.logout, color: AppColors.error),
                   label: const Text(
                     'Logout',
                     style: TextStyle(
@@ -553,6 +691,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 100),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    final isSet = value != 'Not set' && value.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isSet
+                  ? AppColors.primary.withOpacity(0.1)
+                  : Colors.grey.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: isSet ? AppColors.primary : AppColors.textGray,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textGray,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isSet
+                        ? AppColors.textDark
+                        : AppColors.textGray.withOpacity(0.5),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -598,7 +792,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             if (badge != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.background,
                   borderRadius: BorderRadius.circular(12),

@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:roomix/providers/auth_provider.dart';
-import 'package:roomix/screens/home/home_screen.dart';
 import 'package:roomix/constants/app_colors.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  final String? preSelectedRole;
+  const SignupScreen({super.key, this.preSelectedRole});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderStateMixin {
+class _SignupScreenState extends State<SignupScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   String _selectedRole = 'student';
+  String _selectedOwnerType = 'pg_owner'; // 'pg_owner' or 'mess_owner'
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
   bool _agreeToTerms = false;
-  
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -35,6 +37,11 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
     _animationController.forward();
+
+    // If role is pre-selected from login screen, use it
+    if (widget.preSelectedRole != null) {
+      _selectedRole = widget.preSelectedRole!;
+    }
   }
 
   @override
@@ -52,17 +59,57 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
       return;
     }
 
+    // Validate inputs
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty) {
+      _showErrorSnackbar('Please enter your full name');
+      return;
+    }
+
+    if (email.isEmpty) {
+      _showErrorSnackbar('Please enter your email address');
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showErrorSnackbar('Please create a password');
+      return;
+    }
+
+    if (password.length < 6) {
+      _showErrorSnackbar('Password must be at least 6 characters');
+      return;
+    }
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     try {
-      await authProvider.register(
-        _nameController.text.trim(),
-        _emailController.text.trim(),
-        _passwordController.text,
+      final result = await authProvider.register(
+        name,
+        email,
+        password,
         _selectedRole,
+        ownerType: _selectedRole == 'owner' ? _selectedOwnerType : null,
       );
-      
-      _navigateToHome();
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        _showSuccessSnackbar('Account created successfully!');
+
+        // Small delay to show success message
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (!mounted) return;
+
+        // Pop back to AuthGate root — it will reactively show the correct screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        _showErrorSnackbar('Registration failed. Please try again.');
+      }
     } catch (e) {
       _showErrorSnackbar(e.toString().replaceAll('Exception: ', ''));
     }
@@ -75,16 +122,23 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     setState(() {
       _isGoogleLoading = true;
     });
 
     try {
-      final result = await authProvider.signInWithGoogle(_selectedRole);
-      
+      final result = await authProvider.signInWithGoogle(
+        _selectedRole,
+        ownerType: _selectedRole == 'owner' ? _selectedOwnerType : null,
+      );
+
       if (result['success'] == true) {
-        _navigateToHome();
+        _showSuccessSnackbar('Account created successfully!');
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+        // Pop back to AuthGate root — it will reactively show the correct screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
       _showErrorSnackbar(e.toString().replaceAll('Exception: ', ''));
@@ -95,19 +149,6 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
         });
       }
     }
-  }
-
-  void _navigateToHome() {
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
   }
 
   void _showErrorSnackbar(String message) {
@@ -133,6 +174,34 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
     );
   }
 
+  void _showSuccessSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(
+              Icons.check_circle_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   void _clearError() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     authProvider.clearError();
@@ -153,27 +222,27 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                
+
                 // Back Button
                 _buildBackButton(),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Hero Image/Gradient
                 _buildHeroSection(),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // Header
                 _buildHeader(),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // Role Selector
                 _buildRoleSelector(),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // Form
                 _buildForm(authProvider),
               ],
@@ -250,11 +319,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.apartment,
-                  size: 40,
-                  color: AppColors.primary,
-                ),
+                Icon(Icons.apartment, size: 40, color: AppColors.primary),
                 const SizedBox(height: 8),
                 Text(
                   'PREMIUM LIVING',
@@ -280,17 +345,17 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
         Text(
           'Join the Community',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
           'Find your perfect stay or manage your properties with Roomix Professional.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textGray,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textGray),
           textAlign: TextAlign.center,
         ),
       ],
@@ -298,17 +363,105 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
   }
 
   Widget _buildRoleSelector() {
+    // If role is pre-selected from login (e.g. owner), show only the sub-type
+    if (widget.preSelectedRole != null) {
+      if (_selectedRole == 'owner') {
+        return _buildOwnerTypeSelector();
+      }
+      // For student pre-selection, no sub-type needed
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              _buildRoleTab('I am a Student', 'student', Icons.school_outlined),
+              _buildRoleTab(
+                'I am an Owner',
+                'owner',
+                Icons.real_estate_agent_outlined,
+              ),
+            ],
+          ),
+        ),
+        // Owner type sub-selector (only visible when role is 'owner')
+        if (_selectedRole == 'owner') ...[
+          const SizedBox(height: 12),
+          _buildOwnerTypeSelector(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildOwnerTypeSelector() {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: AppColors.primary.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.15)),
       ),
       child: Row(
         children: [
-          _buildRoleTab('I am a Student', 'student', Icons.school_outlined),
-          _buildRoleTab('I am an Owner', 'owner', Icons.real_estate_agent_outlined),
+          _buildOwnerTypeTab('PG Owner', 'pg_owner', Icons.home_work_outlined),
+          _buildOwnerTypeTab(
+            'Mess Owner',
+            'mess_owner',
+            Icons.restaurant_outlined,
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOwnerTypeTab(String label, String type, IconData icon) {
+    final isSelected = _selectedOwnerType == type;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedOwnerType = type),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : AppColors.textGray,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected ? Colors.white : AppColors.textGray,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -377,7 +530,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
           labelText: 'Full Name',
           icon: Icons.person_outline,
         ),
-        
+
         const SizedBox(height: 20),
 
         // Email Field
@@ -388,7 +541,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
           icon: Icons.mail_outline,
           keyboardType: TextInputType.emailAddress,
         ),
-        
+
         const SizedBox(height: 20),
 
         // Password Field
@@ -417,11 +570,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                   ),
                 ),
                 child: _agreeToTerms
-                    ? const Icon(
-                        Icons.check,
-                        size: 16,
-                        color: Colors.white,
-                      )
+                    ? const Icon(Icons.check, size: 16, color: Colors.white)
                     : null,
               ),
             ),
@@ -458,27 +607,24 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
             ),
           ],
         ),
-        
+
         const SizedBox(height: 24),
 
         // Sign Up Button
         _buildPrimaryButton(
           onPressed: authProvider.isLoading ? null : _handleSignup,
-          text: authProvider.isLoading ? 'Creating Account...' : 'Create Account',
+          text: authProvider.isLoading
+              ? 'Creating Account...'
+              : 'Create Account',
           isLoading: authProvider.isLoading,
         ),
-        
+
         const SizedBox(height: 24),
 
         // Divider
         Row(
           children: [
-            Expanded(
-              child: Divider(
-                color: AppColors.border,
-                thickness: 1,
-              ),
-            ),
+            Expanded(child: Divider(color: AppColors.border, thickness: 1)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
@@ -490,12 +636,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                 ),
               ),
             ),
-            Expanded(
-              child: Divider(
-                color: AppColors.border,
-                thickness: 1,
-              ),
-            ),
+            Expanded(child: Divider(color: AppColors.border, thickness: 1)),
           ],
         ),
         const SizedBox(height: 24),
@@ -513,7 +654,11 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                const Icon(
+                  Icons.error_outline,
+                  color: AppColors.error,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -552,7 +697,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
             ),
           ],
         ),
-        
+
         const SizedBox(height: 32),
       ],
     );
@@ -581,6 +726,8 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
           controller: controller,
           onChanged: (_) => _clearError(),
           keyboardType: keyboardType,
+          textAlign: TextAlign.start,
+          textAlignVertical: TextAlignVertical.center,
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -603,10 +750,11 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.primary, width: 2),
             ),
-            hintStyle: const TextStyle(
-              color: AppColors.textGray,
-              fontSize: 14,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
             ),
+            hintStyle: const TextStyle(color: AppColors.textGray, fontSize: 14),
           ),
         ),
       ],
@@ -630,6 +778,8 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
           controller: _passwordController,
           obscureText: _obscurePassword,
           onChanged: (_) => _clearError(),
+          textAlign: TextAlign.start,
+          textAlignVertical: TextAlignVertical.center,
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -637,10 +787,15 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
           ),
           decoration: InputDecoration(
             hintText: 'Min. 8 characters',
-            prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textGray),
+            prefixIcon: const Icon(
+              Icons.lock_outline,
+              color: AppColors.textGray,
+            ),
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                _obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 color: AppColors.textGray,
               ),
               onPressed: () {
@@ -663,10 +818,11 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.primary, width: 2),
             ),
-            hintStyle: const TextStyle(
-              color: AppColors.textGray,
-              fontSize: 14,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
             ),
+            hintStyle: const TextStyle(color: AppColors.textGray, fontSize: 14),
           ),
         ),
       ],
@@ -735,25 +891,16 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
             ? const SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2.5),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.g_mobiledata,
-                    size: 24,
-                    color: Colors.blue,
-                  ),
+                  const Icon(Icons.g_mobiledata, size: 24, color: Colors.blue),
                   const SizedBox(width: 12),
                   const Text(
                     'Continue with Google',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),

@@ -1,5 +1,16 @@
-# Flutter SDK path
-flutter.sdk=C:\\flutter
+# Roomix — Android Local Properties Template
+# Copy this file to local.properties and fill in your values.
+# NEVER commit local.properties to version control!
 
-# TomTom API Key (alternative to environment variable)
-tomtom.api.key=your_tomtom_api_key_here
+# Flutter SDK path (set automatically by Android Studio / flutter tool)
+flutter.sdk=/path/to/your/flutter/sdk
+sdk.dir=/path/to/your/Android/Sdk
+
+# Build configuration
+flutter.buildMode=debug
+flutter.versionCode=1
+flutter.versionName=1.0.0
+
+# MapMyIndia API Key (used for maps, search, and geocoding)
+# Get your key from: https://www.mapmyindia.com/
+mapmyindia.api.key=your_mapmyindia_api_key_here

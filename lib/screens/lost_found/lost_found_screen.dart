@@ -10,6 +10,7 @@ import 'package:roomix/screens/lost_found/lost_item_detail_screen.dart';
 import 'package:roomix/utils/smooth_navigation.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LostFoundScreen extends StatefulWidget {
   const LostFoundScreen({super.key});
@@ -18,28 +19,44 @@ class LostFoundScreen extends StatefulWidget {
   State<LostFoundScreen> createState() => _LostFoundScreenState();
 }
 
-class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProviderStateMixin {
+class _LostFoundScreenState extends State<LostFoundScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_handleTabSelection);
-    
+
     // Initial fetch
     Future.microtask(() {
       final provider = Provider.of<LostFoundProvider>(context, listen: false);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      provider.setCurrentUserId(authProvider.currentUser?.id);
       provider.fetchItems();
       provider.setTab('Lost'); // Default
     });
   }
 
   void _handleTabSelection() {
+    // Rebuild FAB on every tab animation frame change
+    setState(() {});
+
     if (_tabController.indexIsChanging) {
       final provider = Provider.of<LostFoundProvider>(context, listen: false);
-      provider.setTab(_tabController.index == 0 ? 'Lost' : 'Found');
+      switch (_tabController.index) {
+        case 0:
+          provider.setTab('Lost');
+          break;
+        case 1:
+          provider.setTab('Found');
+          break;
+        case 2:
+          provider.setTab('My Reports');
+          break;
+      }
     }
   }
 
@@ -70,10 +87,20 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
           controller: _tabController,
           indicatorColor: Colors.white,
           indicatorWeight: 3,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+          ),
           tabs: const [
-            Tab(text: 'Lost Items'),
-            Tab(text: 'Found Items'),
+            Tab(text: 'Lost'),
+            Tab(text: 'Found'),
+            Tab(text: 'My Reports'),
           ],
         ),
       ),
@@ -97,23 +124,40 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
               child: TextField(
                 controller: _searchController,
                 onChanged: (val) {
-                  Provider.of<LostFoundProvider>(context, listen: false).setSearchQuery(val);
+                  Provider.of<LostFoundProvider>(
+                    context,
+                    listen: false,
+                  ).setSearchQuery(val);
+                  setState(() {}); // rebuild for clear icon
                 },
                 decoration: InputDecoration(
                   hintText: 'Search items...',
                   hintStyle: const TextStyle(color: AppColors.textGray),
-                  prefixIcon: const Icon(Icons.search, color: AppColors.textGray),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppColors.textGray,
+                  ),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear, color: AppColors.textGray),
+                          icon: const Icon(
+                            Icons.clear,
+                            color: AppColors.textGray,
+                          ),
                           onPressed: () {
                             _searchController.clear();
-                            Provider.of<LostFoundProvider>(context, listen: false).setSearchQuery('');
+                            Provider.of<LostFoundProvider>(
+                              context,
+                              listen: false,
+                            ).setSearchQuery('');
+                            setState(() {});
                           },
                         )
                       : null,
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ),
@@ -129,9 +173,44 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
 
                 if (provider.error != null) {
                   return Center(
-                    child: Text(
-                      'Error: ${provider.error}',
-                      style: const TextStyle(color: Colors.red),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Something went wrong',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          provider.error!,
+                          style: const TextStyle(
+                            color: AppColors.textGray,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => provider.fetchItems(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                          ),
+                          child: const Text(
+                            'Retry',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }
@@ -143,7 +222,10 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
                 return RefreshIndicator(
                   onRefresh: () => provider.fetchItems(),
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     itemCount: provider.filteredItems.length,
                     itemBuilder: (context, index) {
                       return _buildItemCard(provider.filteredItems[index]);
@@ -155,35 +237,58 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          SmoothNavigation.push(
-            context,
-            ReportItemScreen(
-              initialType: _tabController.index == 0 ? 'Lost' : 'Found',
-            ),
-          );
-        },
-        backgroundColor: _tabController.index == 0 ? Colors.red : Colors.green,
-        icon: const Icon(Icons.add_circle_outline),
-        label: Text('Report ${_tabController.index == 0 ? "Lost" : "Found"} Item'),
-      ),
+      floatingActionButton: _tabController.index < 2
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                SmoothNavigation.push(
+                  context,
+                  ReportItemScreen(
+                    initialType: _tabController.index == 0 ? 'Lost' : 'Found',
+                  ),
+                );
+              },
+              backgroundColor: _tabController.index == 0
+                  ? Colors.red
+                  : Colors.green,
+              icon: const Icon(Icons.add_circle_outline),
+              label: Text(
+                'Report ${_tabController.index == 0 ? "Lost" : "Found"} Item',
+              ),
+            )
+          : null,
     );
   }
 
   Widget _buildEmptyState(String tab) {
+    IconData icon;
+    String title;
+    String subtitle;
+
+    switch (tab) {
+      case 'My Reports':
+        icon = Icons.assignment_outlined;
+        title = 'No reports yet';
+        subtitle = 'Items you report as lost or found will appear here.';
+        break;
+      case 'Found':
+        icon = Icons.check_circle_outline;
+        title = 'No found items reported';
+        subtitle = 'Help others by reporting items you find.';
+        break;
+      default:
+        icon = Icons.search_off;
+        title = 'No lost items reported';
+        subtitle = 'Great! Only peace of mind here.';
+    }
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            tab == 'Lost' ? Icons.search_off : Icons.check_circle_outline,
-            size: 80,
-            color: AppColors.textGray.withOpacity(0.5),
-          ),
+          Icon(icon, size: 80, color: AppColors.textGray.withOpacity(0.5)),
           const SizedBox(height: 16),
           Text(
-            tab == 'Lost' ? 'No lost items reported' : 'No found items reported',
+            title,
             style: const TextStyle(
               fontSize: 18,
               color: AppColors.textDark,
@@ -192,13 +297,8 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
           ),
           const SizedBox(height: 8),
           Text(
-            tab == 'Lost' 
-                ? 'Great! Only peace of mind here.' 
-                : 'Help others by reporting items you find.',
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textGray,
-            ),
+            subtitle,
+            style: const TextStyle(fontSize: 14, color: AppColors.textGray),
             textAlign: TextAlign.center,
           ),
         ],
@@ -209,6 +309,9 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
   Widget _buildItemCard(LostItemModel item) {
     final isLost = item.status.toLowerCase() == 'lost';
     final statusColor = isLost ? Colors.red : Colors.green;
+    final imageHeight = (MediaQuery.of(context).size.width * 0.48)
+        .clamp(180.0, 250.0)
+        .toDouble();
 
     return GestureDetector(
       onTap: () {
@@ -226,10 +329,7 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
               offset: const Offset(0, 4),
             ),
           ],
-          border: Border.all(
-            color: AppColors.border,
-            width: 1,
-          ),
+          border: Border.all(color: AppColors.border, width: 1),
         ),
         child: Column(
           children: [
@@ -237,18 +337,24 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
                   child: SizedBox(
-                    height: 150,
+                    height: imageHeight,
                     width: double.infinity,
-                    child: item.image != null
+                    child: item.image != null && item.image!.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: item.image!,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(color: Colors.grey[200]),
+                            placeholder: (context, url) =>
+                                Container(color: Colors.grey[200]),
                             errorWidget: (context, url, error) => Container(
                               color: Colors.grey[100],
-                              child: Icon(Icons.broken_image, color: Colors.grey[400]),
+                              child: Icon(
+                                Icons.broken_image,
+                                color: Colors.grey[400],
+                              ),
                             ),
                           )
                         : Container(
@@ -265,7 +371,10 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
                   top: 12,
                   right: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor,
                       borderRadius: BorderRadius.circular(20),
@@ -292,7 +401,10 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
                     top: 12,
                     left: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -308,15 +420,21 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            item.claimStatus == 'Resolved' ? Icons.check_circle : Icons.pending,
+                            item.claimStatus == 'Resolved'
+                                ? Icons.check_circle
+                                : Icons.pending,
                             size: 14,
-                            color: item.claimStatus == 'Resolved' ? Colors.green : Colors.orange,
+                            color: item.claimStatus == 'Resolved'
+                                ? Colors.green
+                                : Colors.orange,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             item.claimStatus,
                             style: TextStyle(
-                              color: item.claimStatus == 'Resolved' ? Colors.green : Colors.orange,
+                              color: item.claimStatus == 'Resolved'
+                                  ? Colors.green
+                                  : Colors.orange,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -345,15 +463,19 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
-                  
+
                   // Location and Date
                   Row(
                     children: [
-                      const Icon(Icons.location_on, size: 14, color: AppColors.textGray),
+                      const Icon(
+                        Icons.location_on,
+                        size: 14,
+                        color: AppColors.textGray,
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          item.location,
+                          item.location ?? 'Unknown location',
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textGray,
@@ -363,7 +485,11 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.calendar_today, size: 14, color: AppColors.textGray),
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 14,
+                        color: AppColors.textGray,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         DateFormat('MMM dd').format(item.date),
@@ -374,13 +500,46 @@ class _LostFoundScreenState extends State<LostFoundScreen> with SingleTickerProv
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 12),
+                  // View on Map button
+                  if (item.location != null && item.location!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final query = Uri.encodeComponent(item.location!);
+                            final url =
+                                'https://www.google.com/maps/search/?api=1&query=$query';
+                            if (await canLaunchUrl(Uri.parse(url))) {
+                              await launchUrl(
+                                Uri.parse(url),
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.map, size: 16),
+                          label: const Text('View on Map'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () {
-                        SmoothNavigation.push(context, LostItemDetailScreen(item: item));
+                        SmoothNavigation.push(
+                          context,
+                          LostItemDetailScreen(item: item),
+                        );
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: statusColor,

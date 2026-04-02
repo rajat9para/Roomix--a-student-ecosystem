@@ -607,31 +607,53 @@ class _CampusMapScreenState extends State<CampusMapScreen>
 
   Widget _buildFloatingActions() {
     return Positioned(
-      bottom: 24,
+      bottom: 32,
       right: 16,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Filter button
-          FloatingActionButton.small(
-            onPressed: () {
-              setState(() => _showFilters = !_showFilters);
-            },
-            backgroundColor: Colors.white,
-            foregroundColor: AppColors.primary,
-            child: const Icon(Icons.tune_rounded),
-          ),
-          const SizedBox(height: 12),
-
-          // Center location button
-          FloatingActionButton.small(
-            onPressed: () {
-              context.read<MapProvider>().updateMapView(28.5244, 77.1855, 14);
-            },
-            backgroundColor: AppColors.primary,
-            child: const Icon(Icons.my_location_rounded),
-          ),
-        ],
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: IconButton(
+                onPressed: () {
+                  setState(() => _showFilters = !_showFilters);
+                },
+                icon: Icon(
+                  Icons.tune_rounded,
+                  color: _showFilters ? AppColors.primary : AppColors.textGray,
+                ),
+                tooltip: 'Filters',
+              ),
+            ),
+            Container(
+              height: 1,
+              width: 32,
+              color: AppColors.border.withOpacity(0.5),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: IconButton(
+                onPressed: () {
+                  context.read<MapProvider>().updateMapView(28.5244, 77.1855, 14);
+                },
+                icon: const Icon(Icons.my_location_rounded, color: AppColors.primary),
+                tooltip: 'My Location',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

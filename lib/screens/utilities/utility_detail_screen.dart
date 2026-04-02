@@ -373,9 +373,9 @@ class _UtilityDetailScreenState extends State<UtilityDetailScreen> {
                 ],
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

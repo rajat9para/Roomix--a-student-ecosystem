@@ -105,7 +105,7 @@ class _BookmarkButtonState extends State<BookmarkButton>
                   isBookmarked ? Icons.bookmark : Icons.bookmark_border,
                   size: widget.size,
                   color: isBookmarked
-                      ? (widget.activeColor ?? const Color(0xFF8B5CF6))
+                      ? (widget.activeColor ?? const Color(0xFFFFB800))
                       : (widget.inactiveColor ??
                           Colors.white.withOpacity(0.6)),
                 ),

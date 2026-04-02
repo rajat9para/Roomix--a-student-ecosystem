@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:roomix/providers/auth_provider.dart';
-import 'package:roomix/screens/auth/signup_screen.dart';
 import 'package:roomix/screens/auth/forgot_password_screen.dart';
-import 'package:roomix/screens/home/home_screen.dart';
+import 'package:roomix/screens/auth/signup_screen.dart';
 import 'package:roomix/constants/app_colors.dart';
+import 'package:roomix/screens/auth/auth_gate.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,17 +14,17 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
-  
+
   String _selectedRole = 'student';
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
-  bool _showOtpField = false;
   bool _otpSent = false;
-  
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -51,29 +52,41 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _handleLogin() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     _clearError();
-    
+
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    
+
     if (email.isEmpty) {
       _showErrorSnackbar('Please enter your email address');
       return;
     }
-    
+
+    // Basic email validation
+    if (!email.contains('@') || !email.contains('.')) {
+      _showErrorSnackbar('Please enter a valid email address');
+      return;
+    }
+
     if (password.isEmpty) {
       _showErrorSnackbar('Please enter your password');
       return;
     }
-    
+
     try {
-      await authProvider.login(email, password, _selectedRole);
-      
-      _emailController.clear();
-      _passwordController.clear();
-      
-      _navigateToHome();
+      final res = await authProvider.login(email, password, _selectedRole);
+
+      if (!mounted) return;
+
+      if (res['success'] == true && authProvider.isAuthenticated) {
+        _emailController.clear();
+        _passwordController.clear();
+        _showSuccessSnackbar('Login successful!');
+        _navigateToAuthGateRoot();
+      } else {
+        _showErrorSnackbar('Login failed. Please check your credentials.');
+      }
     } catch (e) {
       _showErrorSnackbar(e.toString().replaceAll('Exception: ', ''));
     }
@@ -82,17 +95,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   Future<void> _handleSendOtp() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final email = _emailController.text.trim();
-    
+
     if (email.isEmpty) {
       _showErrorSnackbar('Please enter admin email');
       return;
     }
-    
+
     try {
       await authProvider.requestAdminOtp(email);
       setState(() {
         _otpSent = true;
-        _showOtpField = true;
       });
       _showSuccessSnackbar('OTP sent to admin email. Check your inbox!');
     } catch (e) {
@@ -104,24 +116,29 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final email = _emailController.text.trim();
     final otp = _otpController.text.trim();
-    
+
     if (email.isEmpty) {
       _showErrorSnackbar('Please enter admin email');
       return;
     }
-    
+
     if (otp.isEmpty) {
       _showErrorSnackbar('Please enter OTP');
       return;
     }
-    
+    if (otp.length != 6) {
+      _showErrorSnackbar('Please enter a valid 6-digit OTP');
+      return;
+    }
+
     try {
       await authProvider.verifyAdminOtpAndLogin(email, otp);
-      
+
       _emailController.clear();
       _otpController.clear();
-      
-      _navigateToHome();
+      _passwordController.clear();
+      _showSuccessSnackbar('Admin login successful!');
+      _navigateToAuthGateRoot();
     } catch (e) {
       _showErrorSnackbar(e.toString().replaceAll('Exception: ', ''));
     }
@@ -129,9 +146,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _handleGoogleSignIn() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     _clearError();
-    
+
     setState(() {
       _isGoogleLoading = true;
     });
@@ -139,25 +156,29 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     try {
       debugPrint('Starting Google Sign-In...');
       final result = await authProvider.signInWithGoogle(_selectedRole);
-      
-      if (result['success'] == true) {
-        debugPrint('Google Sign-In successful');
+
+      if (result['success'] == true && authProvider.isAuthenticated) {
+        debugPrint(
+          'Google Sign-In successful — user authenticated, AuthGate will navigate',
+        );
         _emailController.clear();
         _passwordController.clear();
-        
+
         if (mounted) {
           _showSuccessSnackbar('Successfully signed in with Google!');
-        }
-        
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        if (mounted) {
-          _navigateToHome();
+          _navigateToAuthGateRoot();
         }
       } else if (result['cancelled'] == true) {
         debugPrint('Google Sign-In cancelled');
         if (mounted) {
           _showInfoSnackbar('Sign-in was cancelled');
+        }
+      } else {
+        // Should not reach here, but handle gracefully
+        if (mounted) {
+          _showErrorSnackbar(
+            'Sign-in completed but authentication was not established. Please try again.',
+          );
         }
       }
     } catch (e) {
@@ -173,19 +194,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         });
       }
     }
-  }
-
-  void _navigateToHome() {
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
   }
 
   void _showErrorSnackbar(String message) {
@@ -217,7 +225,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+            const Icon(
+              Icons.check_circle_outline,
+              color: Colors.white,
+              size: 20,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -269,10 +281,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     setState(() {
       _selectedRole = role;
       _clearError();
-      _showOtpField = false;
       _otpSent = false;
       _otpController.clear();
+      _passwordController.clear();
     });
+  }
+
+  void _navigateToAuthGateRoot() {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AuthGate()),
+      (_) => false,
+    );
   }
 
   @override
@@ -321,11 +341,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           ],
         ),
-        child: const Icon(
-          Icons.grid_view,
-          color: Colors.white,
-          size: 32,
-        ),
+        child: const Icon(Icons.grid_view, color: Colors.white, size: 32),
       ),
     );
   }
@@ -337,17 +353,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         Text(
           'Roomix',
           style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
           'Welcome to your professional campus community',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.textGray,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyLarge?.copyWith(color: AppColors.textGray),
           textAlign: TextAlign.center,
         ),
       ],
@@ -423,15 +439,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         // Email Field
         _buildTextField(
           controller: _emailController,
-          hintText: _selectedRole == 'admin' ? 'Enter admin email' : 'name@university.edu',
+          hintText: _selectedRole == 'student'
+              ? 'name@college.ac.in'
+              : _selectedRole == 'owner'
+              ? 'Enter your email'
+              : 'Enter admin email',
           labelText: 'Email Address',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
         ),
-        
+
         const SizedBox(height: 20),
 
-        // Send OTP Button for Admin (if OTP not sent yet)
         if (_selectedRole == 'admin' && !_otpSent) ...[
           const SizedBox(height: 20),
           _buildPrimaryButton(
@@ -441,7 +460,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         ],
 
-        // OTP Field (only if Admin and OTP sent)
         if (_selectedRole == 'admin' && _otpSent) ...[
           const SizedBox(height: 20),
           _buildTextField(
@@ -450,13 +468,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             labelText: 'OTP Code',
             icon: Icons.vpn_key_outlined,
             keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
+            ],
           ),
         ],
 
-        // Password Field (only for non-admin)
+        // Password Field (only for non-admin roles)
         if (_selectedRole != 'admin') ...[
           const SizedBox(height: 20),
-          _buildPasswordField(),
+          _buildPasswordField(
+            label: 'Password',
+            hintText: 'Enter your password',
+          ),
         ],
 
         const SizedBox(height: 16),
@@ -479,36 +504,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               ),
             ),
           ),
-        
+
         const SizedBox(height: 24),
 
-        // Login Button (Hidden for Admin until OTP sent, or use different logic)
-        // Actually for Admin:
-        // - Initial: Show "Send OTP" button only.
-        // - After OTP: Show "Verify & Login" button.
         if (_selectedRole != 'admin' || (_selectedRole == 'admin' && _otpSent))
           _buildPrimaryButton(
-            onPressed: authProvider.isLoading 
-              ? null 
-              : (_selectedRole == 'admin' ? _handleAdminLogin : _handleLogin),
+            onPressed: authProvider.isLoading
+                ? null
+                : (_selectedRole == 'admin' ? _handleAdminLogin : _handleLogin),
             text: authProvider.isLoading
-              ? 'Please wait...'
-              : (_selectedRole == 'admin' ? 'Verify & Login' : 'Sign In'),
+                ? 'Please wait...'
+                : (_selectedRole == 'admin' ? 'Verify & Login' : 'Sign In'),
             isLoading: authProvider.isLoading,
           ),
-        
+
         const SizedBox(height: 24),
 
         // Divider (only for non-admin)
         if (_selectedRole != 'admin') ...[
           Row(
             children: [
-              Expanded(
-                child: Divider(
-                  color: AppColors.border,
-                  thickness: 1,
-                ),
-              ),
+              Expanded(child: Divider(color: AppColors.border, thickness: 1)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
@@ -520,12 +536,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   ),
                 ),
               ),
-              Expanded(
-                child: Divider(
-                  color: AppColors.border,
-                  thickness: 1,
-                ),
-              ),
+              Expanded(child: Divider(color: AppColors.border, thickness: 1)),
             ],
           ),
           const SizedBox(height: 24),
@@ -548,9 +559,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _otpSent 
-                      ? 'Check your email for the password reset link, then login with your password.'
-                      : 'Admin access requires email verification. Click "Send OTP" to receive a verification email.',
+                    _otpSent
+                        ? 'Enter the OTP sent to your email, then tap Verify & Login.'
+                        : 'Admin access works through OTP only.',
                     style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 12,
@@ -575,7 +586,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                const Icon(
+                  Icons.error_outline,
+                  color: AppColors.error,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -606,7 +621,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const SignupScreen(),
+                    builder: (_) => SignupScreen(preSelectedRole: _selectedRole),
                   ),
                 );
               },
@@ -621,7 +636,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           ],
         ),
-        
+
         const SizedBox(height: 32),
       ],
     );
@@ -634,6 +649,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     required IconData icon,
     bool readOnly = false,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,6 +668,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           readOnly: readOnly,
           onChanged: (_) => _clearError(),
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          textAlign: TextAlign.start,
+          textAlignVertical: TextAlignVertical.center,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -674,22 +693,26 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.primary, width: 2),
             ),
-            hintStyle: const TextStyle(
-              color: AppColors.textGray,
-              fontSize: 14,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
             ),
+            hintStyle: const TextStyle(color: AppColors.textGray, fontSize: 14),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPasswordField() {
+  Widget _buildPasswordField({
+    String label = 'Password',
+    String hintText = 'Enter your password',
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Password',
+          label,
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -701,17 +724,24 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           controller: _passwordController,
           obscureText: _obscurePassword,
           onChanged: (_) => _clearError(),
+          textAlign: TextAlign.start,
+          textAlignVertical: TextAlignVertical.center,
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
             color: AppColors.textDark,
           ),
           decoration: InputDecoration(
-            hintText: 'Enter your password',
-            prefixIcon: const Icon(Icons.lock_outlined, color: AppColors.textGray),
+            hintText: hintText,
+            prefixIcon: const Icon(
+              Icons.lock_outlined,
+              color: AppColors.textGray,
+            ),
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                _obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 color: AppColors.textGray,
               ),
               onPressed: () {
@@ -734,10 +764,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.primary, width: 2),
             ),
-            hintStyle: const TextStyle(
-              color: AppColors.textGray,
-              fontSize: 14,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
             ),
+            hintStyle: const TextStyle(color: AppColors.textGray, fontSize: 14),
           ),
         ),
       ],
@@ -799,9 +830,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ? const SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2.5),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -822,10 +851,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   const SizedBox(width: 12),
                   const Text(
                     'Continue with Google',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),

@@ -37,120 +37,60 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
     try {
       setState(() => _isLoading = true);
       
-      // Fetch from Firebase
       final firebaseService = FirebaseService();
       final snapshot = await firebaseService.getUniversities(forceRefresh: true);
       
-      if (snapshot.isEmpty) {
-        // Seed with default universities if none exist
-        await _seedUniversities();
-        final newSnapshot = await firebaseService.getUniversities();
-        setState(() {
-          _universities = newSnapshot;
-          _filteredUniversities = newSnapshot;
-          _isLoading = false;
-          _errorMessage = '';
-        });
-      } else {
+      if (mounted) {
         setState(() {
           _universities = snapshot;
-          _filteredUniversities = snapshot;
+          // Sort alphabetically by default
+          _universities.sort((a, b) => a.name.compareTo(b.name));
+          _filteredUniversities = List.from(_universities);
           _isLoading = false;
           _errorMessage = '';
         });
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load universities: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _seedUniversities() async {
-    final firebaseService = FirebaseService();
-    final defaultUniversities = [
-      {
-        'name': 'Delhi University',
-        'city': 'New Delhi',
-        'state': 'Delhi',
-        'country': 'India',
-      },
-      {
-        'name': 'IIT Bombay',
-        'city': 'Mumbai',
-        'state': 'Maharashtra',
-        'country': 'India',
-      },
-      {
-        'name': 'IIT Delhi',
-        'city': 'New Delhi',
-        'state': 'Delhi',
-        'country': 'India',
-      },
-      {
-        'name': 'BITS Pilani',
-        'city': 'Pilani',
-        'state': 'Rajasthan',
-        'country': 'India',
-      },
-      {
-        'name': 'VIT Vellore',
-        'city': 'Vellore',
-        'state': 'Tamil Nadu',
-        'country': 'India',
-      },
-      {
-        'name': 'SRM University',
-        'city': 'Chennai',
-        'state': 'Tamil Nadu',
-        'country': 'India',
-      },
-      {
-        'name': 'Amity University',
-        'city': 'Noida',
-        'state': 'Uttar Pradesh',
-        'country': 'India',
-      },
-      {
-        'name': 'Chandigarh University',
-        'city': 'Chandigarh',
-        'state': 'Punjab',
-        'country': 'India',
-      },
-      {
-        'name': 'University of Mumbai',
-        'city': 'Mumbai',
-        'state': 'Maharashtra',
-        'country': 'India',
-      },
-      {
-        'name': 'Jadavpur University',
-        'city': 'Kolkata',
-        'state': 'West Bengal',
-        'country': 'India',
-      },
-    ];
-
-    for (final uni in defaultUniversities) {
-      await firebaseService.createUniversity(uni);
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load universities: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
   void _filterUniversities(String query) {
     if (query.isEmpty) {
       setState(() {
-        _filteredUniversities = _universities;
+        _filteredUniversities = List.from(_universities);
       });
       return;
     }
 
+    final lowerQuery = query.toLowerCase().trim();
+
     setState(() {
-      _filteredUniversities = _universities
-          .where((university) =>
-              university.name.toLowerCase().contains(query.toLowerCase()) ||
-              university.city.toLowerCase().contains(query.toLowerCase()))
-          .toList();
+      // 1. Filter matches
+      var matches = _universities.where((u) {
+        return u.name.toLowerCase().contains(lowerQuery) || 
+               u.city.toLowerCase().contains(lowerQuery);
+      }).toList();
+
+      // 2. Sort by startsWith (real android app feel)
+      matches.sort((a, b) {
+        final aLower = a.name.toLowerCase();
+        final bLower = b.name.toLowerCase();
+        
+        final aStarts = aLower.startsWith(lowerQuery);
+        final bStarts = bLower.startsWith(lowerQuery);
+        
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return aLower.compareTo(bLower); // alphabetical fallback
+      });
+
+      _filteredUniversities = matches;
     });
   }
 
@@ -381,7 +321,7 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textGray),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: _loadUniversities,
               icon: const Icon(Icons.refresh),
@@ -456,7 +396,7 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
               ),
               child: Center(
                 child: Text(
-                  university.name.substring(0, 1).toUpperCase(),
+                  university.name.isNotEmpty ? university.name.substring(0, 1).toUpperCase() : '?',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -488,6 +428,8 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
                       fontSize: 13,
                       color: AppColors.textGray,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

@@ -452,15 +452,15 @@ class _RoomScreenState extends State<RoomScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off, size: 80, color: Colors.white.withOpacity(0.3)),
+          Icon(Icons.search_off, size: 80, color: AppColors.textSubtle),
           const SizedBox(height: 16),
           Text(
             _searchController.text.isNotEmpty ? 'No rooms match your search' : 'No rooms found',
-            style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 18, color: AppColors.textDark, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Text('Try adjusting your filters or search criteria',
-              style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6))),
+          const Text('Try adjusting your filters or search criteria',
+              style: TextStyle(fontSize: 14, color: AppColors.textGray)),
           const SizedBox(height: 24),
           GestureDetector(
             onTap: () {
@@ -494,13 +494,13 @@ class _RoomScreenState extends State<RoomScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 80, color: Colors.white.withOpacity(0.3)),
+          Icon(Icons.error_outline, size: 80, color: AppColors.textSubtle),
           const SizedBox(height: 16),
           const Text('Error loading rooms',
-              style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+              style: TextStyle(fontSize: 18, color: AppColors.textDark, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text(_errorMessage, textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6))),
+              style: const TextStyle(fontSize: 14, color: AppColors.textGray)),
           const SizedBox(height: 24),
           GestureDetector(
             onTap: _fetchRooms,

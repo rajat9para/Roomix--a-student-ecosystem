@@ -6,9 +6,6 @@ import 'package:roomix/providers/auth_provider.dart';
 import 'package:roomix/models/market_item_model.dart';
 import 'package:roomix/constants/app_colors.dart';
 import 'package:roomix/widgets/loading_indicator.dart';
-import 'package:roomix/widgets/filter_bottom_sheet.dart';
-import 'package:roomix/widgets/sort_chip.dart';
-import 'package:roomix/widgets/bookmark_button.dart';
 import 'package:roomix/screens/market/add_item_screen.dart';
 import 'package:roomix/screens/market/item_detail_screen.dart';
 import 'package:roomix/utils/smooth_navigation.dart';
@@ -21,28 +18,16 @@ class MarketScreen extends StatefulWidget {
   State<MarketScreen> createState() => _MarketScreenState();
 }
 
-class _MarketScreenState extends State<MarketScreen> {
+class _MarketScreenState extends State<MarketScreen> with SingleTickerProviderStateMixin {
   late TextEditingController _searchController;
+  late TabController _tabController;
   Timer? _searchDebounceTimer;
-  String _sortBy = 'newest';
-  
-  // Local filters (price/condition) on top of provider's search
-  // Provider handles text search and category.
-  // We can let provider handle everything or do mixed.
-  // MarketProvider has _applyFilters which handles text and category.
-  // I will add price/condition filtering locally on the result from provider for now, 
-  // or extend provider. Let's keep it simple and do local sort/filter on provider's list.
-  
-  double _minPrice = 0;
-  double _maxPrice = 50000;
-  double _selectedMinPrice = 0;
-  double _selectedMaxPrice = 50000;
-  String? _selectedCondition;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _tabController = TabController(length: 2, vsync: this);
     
     Future.microtask(() {
       Provider.of<MarketProvider>(context, listen: false).fetchItems();
@@ -53,108 +38,20 @@ class _MarketScreenState extends State<MarketScreen> {
   void dispose() {
     _searchController.dispose();
     _searchDebounceTimer?.cancel();
+    _tabController.dispose();
     super.dispose();
   }
 
   void _onSearchChanged(String query) {
     _searchDebounceTimer?.cancel();
-    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 400), () {
       Provider.of<MarketProvider>(context, listen: false).setSearchQuery(query);
+      setState(() {}); // rebuild for clear icon
     });
-  }
-
-  List<MarketItemModel> _getProcessedItems(List<MarketItemModel> items) {
-    List<MarketItemModel> results = List.from(items);
-    
-    // Price filter
-    results = results.where((item) => 
-      item.price >= _selectedMinPrice && item.price <= _selectedMaxPrice
-    ).toList();
-    
-    // Condition filter
-    if (_selectedCondition != null) {
-      results = results.where((item) => item.condition == _selectedCondition).toList();
-    }
-    
-    // Sorting
-    switch (_sortBy) {
-      case 'price-low':
-        results.sort((a, b) => a.price.compareTo(b.price));
-        break;
-      case 'price-high':
-        results.sort((a, b) => b.price.compareTo(a.price));
-        break;
-      case 'newest':
-      default:
-        results.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Assuming newer first
-        break;
-    }
-    
-    return results;
-  }
-
-  int _getActiveFilterCount() {
-    int count = 0;
-    if (_selectedCondition != null) count++;
-    if (_selectedMinPrice > _minPrice || _selectedMaxPrice < _maxPrice) count++;
-    return count;
-  }
-
-  void _showFilterBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return FilterBottomSheet(
-          title: 'Filter Items',
-          sections: [
-            FilterSection(
-              title: 'Condition',
-              type: 'radio',
-              filterKey: 'condition',
-              options: ['Any', 'New', 'Like New', 'Good', 'Fair', 'Poor'],
-            ),
-            FilterSection(
-              title: 'Price Range',
-              type: 'range',
-              filterKey: 'price',
-              minValue: _minPrice,
-              maxValue: _maxPrice,
-            ),
-          ],
-          initialFilters: {
-            'condition': _selectedCondition ?? 'Any',
-            'price_min': _selectedMinPrice,
-            'price_max': _selectedMaxPrice,
-          },
-          onApply: (filters) {
-            setState(() {
-              final selectedCondition = filters['condition'] as String?;
-              _selectedCondition = (selectedCondition == null || selectedCondition == 'Any')
-                  ? null
-                  : selectedCondition;
-              _selectedMinPrice = (filters['price_min'] as num?)?.toDouble() ?? _minPrice;
-              _selectedMaxPrice = (filters['price_max'] as num?)?.toDouble() ?? _maxPrice;
-            });
-          },
-          onReset: () {
-            setState(() {
-              _selectedCondition = null;
-              _selectedMinPrice = _minPrice;
-              _selectedMaxPrice = _maxPrice;
-            });
-          },
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Determine min/max price from all items once loaded
-    // ideally provider should give this stat
-    
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -169,49 +66,18 @@ class _MarketScreenState extends State<MarketScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: AppColors.textDark,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Stack(
-              children: [
-                Center(
-                  child: GestureDetector(
-                    onTap: _showFilterBottomSheet,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.background,
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Icon(Icons.tune, size: 20, color: AppColors.textDark),
-                    ),
-                  ),
-                ),
-                if (_getActiveFilterCount() > 0)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        _getActiveFilterCount().toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: AppColors.primary,
+          indicatorWeight: 3,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textGray,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          tabs: const [
+            Tab(text: 'All Items'),
+            Tab(text: 'My Listings'),
+          ],
+        ),
       ),
       body: Column(
         children: [
@@ -238,6 +104,7 @@ class _MarketScreenState extends State<MarketScreen> {
                           onPressed: () {
                             _searchController.clear();
                             Provider.of<MarketProvider>(context, listen: false).setSearchQuery('');
+                            setState(() {});
                           },
                         )
                       : null,
@@ -248,90 +115,14 @@ class _MarketScreenState extends State<MarketScreen> {
             ),
           ),
 
-          // Categories (Optional, maybe Sort Chips here)
-          Container(
-            color: Colors.white,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Row(
-                children: [
-                  SortChip(
-                    label: 'Newest',
-                    isActive: _sortBy == 'newest',
-                    onTap: () => setState(() => _sortBy = 'newest'),
-                    activeColor: AppColors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  SortChip(
-                    label: 'Price Low',
-                    isActive: _sortBy == 'price-low',
-                    onTap: () => setState(() => _sortBy = 'price-low'),
-                    activeColor: AppColors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  SortChip(
-                    label: 'Price High',
-                    isActive: _sortBy == 'price-high',
-                    onTap: () => setState(() => _sortBy = 'price-high'),
-                    activeColor: AppColors.primary,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Items List
+          // Tab content
           Expanded(
-            child: Consumer<MarketProvider>(
-              builder: (context, provider, _) {
-                if (provider.isLoading) {
-                  return const LoadingIndicator();
-                }
-
-                if (provider.error != null) {
-                  return Center(child: Text('Error: ${provider.error}'));
-                }
-
-                final displayItems = _getProcessedItems(provider.filteredItems);
-
-                if (displayItems.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 64,
-                          color: AppColors.textGray,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchController.text.isNotEmpty 
-                            ? 'No items match your search'
-                            : 'No items available',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textDark,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () => provider.fetchItems(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: displayItems.length,
-                    itemBuilder: (context, index) {
-                      return _buildItemCard(displayItems[index]);
-                    },
-                  ),
-                );
-              },
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildAllItemsList(),
+                _buildMyListings(),
+              ],
             ),
           ),
         ],
@@ -347,6 +138,290 @@ class _MarketScreenState extends State<MarketScreen> {
     );
   }
 
+  Widget _buildAllItemsList() {
+    return Consumer<MarketProvider>(
+      builder: (context, provider, _) {
+        if (provider.isLoading) {
+          return const LoadingIndicator();
+        }
+        if (provider.error != null) {
+          return Center(child: Text('Error: ${provider.error}'));
+        }
+
+        final displayItems = provider.filteredItems;
+
+        if (displayItems.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.shopping_bag_outlined, size: 64, color: AppColors.textGray),
+                const SizedBox(height: 16),
+                Text(
+                  _searchController.text.isNotEmpty
+                      ? 'No items match your search'
+                      : 'No items available',
+                  style: const TextStyle(fontSize: 16, color: AppColors.textDark, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text('Be the first to list something!', style: TextStyle(color: AppColors.textGray, fontSize: 13)),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () => provider.fetchItems(),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: displayItems.length,
+            itemBuilder: (context, index) {
+              return _buildItemCard(displayItems[index]);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMyListings() {
+    return Consumer<MarketProvider>(
+      builder: (context, provider, _) {
+        if (provider.isLoading) {
+          return const LoadingIndicator();
+        }
+
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final currentUserId = authProvider.currentUser?.id;
+
+        if (currentUserId == null) {
+          return const Center(
+            child: Text('Please log in to see your listings', style: TextStyle(color: AppColors.textGray)),
+          );
+        }
+
+        final myItems = provider.items
+            .where((item) => item.sellerId == currentUserId)
+            .toList();
+
+        if (myItems.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.storefront_outlined, size: 64, color: AppColors.textGray),
+                const SizedBox(height: 16),
+                const Text(
+                  'No listings yet',
+                  style: TextStyle(fontSize: 16, color: AppColors.textDark, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text('Tap "Sell Item" to post your first listing!', style: TextStyle(color: AppColors.textGray, fontSize: 13)),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () => provider.fetchItems(),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: myItems.length,
+            itemBuilder: (context, index) {
+              return _buildMyItemCard(myItems[index]);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  /// Card for "My Listings" with Mark Sold / Delete actions
+  Widget _buildMyItemCard(MarketItemModel item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: AppColors.shadow, blurRadius: 12, offset: const Offset(0, 4)),
+        ],
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          // Image + status
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: SizedBox(
+                  height: 140,
+                  width: double.infinity,
+                  child: item.allImages.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: item.allImages.first,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(color: Colors.grey[200]),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.broken_image, color: Colors.grey),
+                          ),
+                        )
+                      : Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image, size: 50, color: Colors.grey),
+                        ),
+                ),
+              ),
+              if (item.sold)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text('SOLD', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+            ],
+          ),
+
+          // Details + actions
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '₹${item.price.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${item.condition} • ${item.category ?? "General"}',
+                  style: const TextStyle(fontSize: 12, color: AppColors.textGray),
+                ),
+                const SizedBox(height: 12),
+                // Action buttons
+                Row(
+                  children: [
+                    if (!item.sold)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _markAsSold(item),
+                          icon: const Icon(Icons.check_circle_outline, size: 16),
+                          label: const Text('Mark Sold'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green,
+                            side: const BorderSide(color: Colors.green),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    if (!item.sold) const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _deleteItem(item),
+                        icon: const Icon(Icons.delete_outline, size: 16),
+                        label: const Text('Delete'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _markAsSold(MarketItemModel item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Mark as Sold?'),
+        content: Text('Are you sure "${item.title}" has been sold?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Yes, Sold', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      try {
+        await Provider.of<MarketProvider>(context, listen: false).markAsSold(item.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Item marked as sold!'), backgroundColor: Colors.green),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteItem(MarketItemModel item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Listing?'),
+        content: Text('Are you sure you want to delete "${item.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      try {
+        await Provider.of<MarketProvider>(context, listen: false).deleteItem(item.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Listing deleted'), backgroundColor: AppColors.primary),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildItemCard(MarketItemModel item) {
     return GestureDetector(
       onTap: () {
@@ -358,11 +433,7 @@ class _MarketScreenState extends State<MarketScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
-            BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
+            BoxShadow(color: AppColors.shadow, blurRadius: 12, offset: const Offset(0, 4)),
           ],
           border: Border.all(color: AppColors.border),
         ),
@@ -376,9 +447,9 @@ class _MarketScreenState extends State<MarketScreen> {
                   child: SizedBox(
                     height: 180,
                     width: double.infinity,
-                    child: item.image != null
+                    child: item.allImages.isNotEmpty
                         ? CachedNetworkImage(
-                            imageUrl: item.image!,
+                            imageUrl: item.allImages.first,
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(color: Colors.grey[200]),
                             errorWidget: (context, url, error) => Container(
@@ -404,11 +475,7 @@ class _MarketScreenState extends State<MarketScreen> {
                       ),
                       child: const Text(
                         'SOLD',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -427,22 +494,14 @@ class _MarketScreenState extends State<MarketScreen> {
                       Expanded(
                         child: Text(
                           item.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
-                          ),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textDark),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       Text(
                         '₹${item.price.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
                       ),
                     ],
                   ),
@@ -456,25 +515,20 @@ class _MarketScreenState extends State<MarketScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          item.category,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          item.category ?? 'General',
+                          style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         item.condition,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textGray,
-                        ),
+                        style: const TextStyle(fontSize: 12, color: AppColors.textGray),
                       ),
                       const Spacer(),
-                      // Using BookmarkButton with minimal styling if needed
-                      // For now, just a placeholder icon or remove it
+                      Text(
+                        'by ${item.sellerName}',
+                        style: const TextStyle(fontSize: 11, color: AppColors.textGray, fontStyle: FontStyle.italic),
+                      ),
                     ],
                   ),
                 ],

@@ -32,6 +32,7 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
   double? _minRating;
   String _sortBy = 'newest';
   bool _openNowOnly = false;
+  String _selectedCategory = 'All';
 
   @override
   void initState() {
@@ -318,6 +319,52 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                   ),
                   style: const TextStyle(color: AppColors.textDark),
                 ),
+              ),
+            ),
+
+            // Youth Category Chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  'All', 'Grocery', 'Medical', 'Gyms', 'Stationary',
+                  'Photostat', 'Gaming', 'Fast Food', 'Cafes',
+                ].map((cat) {
+                  final isActive = _selectedCategory == cat;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedCategory = cat);
+                        final provider = Provider.of<UtilityProvider>(context, listen: false);
+                        if (cat == 'All') {
+                          provider.searchUtilities('');
+                        } else {
+                          provider.searchUtilities(cat);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isActive ? AppColors.primary : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isActive ? AppColors.primary : AppColors.border,
+                          ),
+                        ),
+                        child: Text(
+                          cat,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isActive ? Colors.white : AppColors.textDark,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
 

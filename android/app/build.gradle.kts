@@ -67,8 +67,8 @@ android {
 
     defaultConfig {
         applicationId = "com.company.roomix"
-        // minSdk 23 required for Firebase Auth
-        minSdk = flutter.minSdkVersion
+        // Firebase Auth requires minSdk 23.
+        minSdk = maxOf(flutter.minSdkVersion, 23)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

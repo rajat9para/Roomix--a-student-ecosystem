@@ -1,11 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:roomix/providers/auth_provider.dart';
-import 'package:roomix/providers/user_preferences_provider.dart';
-import 'package:roomix/screens/auth/login_screen.dart';
-import 'package:roomix/screens/home/home_screen.dart';
-import 'package:roomix/screens/onboarding/university_selection_screen.dart';
 import 'package:roomix/constants/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -34,6 +28,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   bool _isTypingComplete = false;
   bool _showTagline = false;
   bool _showLoading = false;
+  bool _isInitializing = false;
 
   @override
   void initState() {
@@ -120,12 +115,16 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Wait for logo animation to complete
     await Future.delayed(const Duration(milliseconds: 1400));
     
+    // Check if still mounted
+    if (!mounted) return;
+    
     // Step 2: Start typewriter effect
     _startTypewriterEffect();
     _cursorController.forward();
     
     // Step 3: After typing completes, show tagline
     await Future.delayed(const Duration(milliseconds: 2500));
+    if (!mounted) return;
     setState(() {
       _isTypingComplete = true;
       _showTagline = true;
@@ -134,12 +133,13 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     
     // Step 4: Show loading animation
     await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
     setState(() => _showLoading = true);
     _loadingController.forward();
     
-    // Step 5: Navigate after animation completes
+    // Step 5: Just wait — AuthGate handles navigation automatically
     await Future.delayed(const Duration(milliseconds: 2000));
-    _checkAuthStatus();
+    // No navigation here — AuthGate is the sole navigator
   }
 
   void _startTypewriterEffect() {
@@ -153,41 +153,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         timer.cancel();
       }
     });
-  }
-
-  Future<void> _checkAuthStatus() async {
-    if (!mounted) return;
-    
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final preferencesProvider = Provider.of<UserPreferencesProvider>(context, listen: false);
-    
-    if (authProvider.isAuthenticated) {
-      await preferencesProvider.loadUserPreferences();
-      
-      if (preferencesProvider.isOnboardingComplete) {
-        _navigateTo(const HomeScreen());
-      } else {
-        _navigateTo(const UniversitySelectionScreen(isOnboarding: true));
-      }
-    } else {
-      _navigateTo(const LoginScreen());
-    }
-  }
-
-  void _navigateTo(Widget screen) {
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => screen,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 800),
-      ),
-    );
   }
 
   @override

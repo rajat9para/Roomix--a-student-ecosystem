@@ -116,7 +116,7 @@ class LostItemDetailScreen extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    item.location,
+                                    item.location ?? 'Unknown location',
                                     style: const TextStyle(
                                       fontSize: 16,
                                       color: AppColors.textDark,

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:roomix/models/market_item_model.dart';
 import 'package:roomix/services/firebase_service.dart';
 
 class MarketProvider with ChangeNotifier {
   final FirebaseService _firebaseService = FirebaseService();
+  StreamSubscription? _subscription;
   
   List<MarketItemModel> _items = [];
   List<MarketItemModel> _filteredItems = [];
@@ -35,18 +37,38 @@ class MarketProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
 
+    // Cancel any previous subscription
+    _subscription?.cancel();
+
     try {
-      _firebaseService.getMarketItems().listen((dataList) {
-        _items = dataList.map((data) => MarketItemModel.fromJson(data)).toList();
-        _applyFilters();
-        _isLoading = false;
-        notifyListeners();
-      }, onError: (e) {
-        _error = e.toString();
-        _isLoading = false;
-        notifyListeners();
-      });
+      _subscription = _firebaseService.getMarketItems().listen(
+        (dataList) {
+          try {
+            _items = dataList.map((data) => MarketItemModel.fromJson(data)).toList();
+          } catch (parseError) {
+            debugPrint('Error parsing market items: $parseError');
+            _items = [];
+          }
+          _applyFilters();
+          _isLoading = false;
+          _error = null;
+          notifyListeners();
+        },
+        onError: (e) {
+          debugPrint('Market items stream error: $e');
+          _error = e.toString();
+          _isLoading = false;
+          notifyListeners();
+        },
+        onDone: () {
+          if (_isLoading) {
+            _isLoading = false;
+            notifyListeners();
+          }
+        },
+      );
     } catch (e) {
+      debugPrint('Market items fetch error: $e');
       _error = e.toString();
       _isLoading = false;
       notifyListeners();
@@ -85,7 +107,8 @@ class MarketProvider with ChangeNotifier {
         price: item.price,
         condition: item.condition,
         category: item.category ?? 'Others',
-        image: item.image,
+        image: item.allImages.isNotEmpty ? item.allImages.first : null,
+        images: item.images,
         sellerId: item.sellerId ?? '',
         sellerName: item.sellerName,
         sellerContact: item.sellerContact,
@@ -119,5 +142,11 @@ class MarketProvider with ChangeNotifier {
       notifyListeners();
       rethrow;
     }
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 }

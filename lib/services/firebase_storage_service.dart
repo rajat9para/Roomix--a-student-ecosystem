@@ -22,24 +22,37 @@ class FirebaseStorageService {
       final String uniqueFileName =
           fileName ?? '${DateTime.now().millisecondsSinceEpoch}.jpg';
 
+      debugPrint('📤 STORAGE: Uploading to $folder/$uniqueFileName');
+      debugPrint('📤 STORAGE: File path: ${file.path}');
+      debugPrint('📤 STORAGE: File exists: ${await file.exists()}');
+      debugPrint('📤 STORAGE: File size: ${await file.length()} bytes');
+      debugPrint('📤 STORAGE: Bucket: ${_storage.bucket}');
+      
       final Reference ref = _storage.ref().child('$folder/$uniqueFileName');
 
       // 🔥 READ BYTES INSTEAD OF FILE (fixes Android cancel + object-not-found)
       final bytes = await file.readAsBytes();
+      debugPrint('📤 STORAGE: Read ${bytes.length} bytes, starting putData...');
 
       final TaskSnapshot snapshot = await ref.putData(
         bytes,
         SettableMetadata(contentType: 'image/jpeg'),
       );
+      
+      debugPrint('📤 STORAGE: putData complete, state: ${snapshot.state}');
 
       final String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      debugPrint("✅ UPLOADED URL => $downloadUrl");
+      debugPrint("✅ STORAGE UPLOADED => $downloadUrl");
 
       return downloadUrl;
-    } catch (e) {
-      debugPrint('❌ Upload failed: $e');
-      throw Exception('Failed to upload image');
+    } on FirebaseException catch (e) {
+      debugPrint('❌ STORAGE FirebaseException: code=${e.code}, message=${e.message}, plugin=${e.plugin}');
+      throw Exception('Firebase Storage error [${e.code}]: ${e.message}');
+    } catch (e, stackTrace) {
+      debugPrint('❌ STORAGE Upload failed: $e');
+      debugPrint('❌ STORAGE Stack: $stackTrace');
+      throw Exception('Failed to upload image: $e');
     }
   }
 
