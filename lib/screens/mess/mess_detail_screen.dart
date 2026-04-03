@@ -8,7 +8,7 @@ import 'package:roomix/services/api_service.dart';
 import 'package:roomix/constants/app_colors.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:roomix/widgets/bookmark_button.dart';
-import 'package:roomix/services/telegram_service.dart';
+import 'package:roomix/screens/messages/chat_detail_screen.dart';
 import 'package:roomix/services/maps_navigation_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -145,17 +145,15 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
       if (ownerDoc.exists) {
         final ownerData = ownerDoc.data()!;
         setState(() {
-          _ownerTelegramPhone = TelegramService.extractPhoneFromUserData(
-            ownerData,
-          );
+          _ownerTelegramPhone = ownerData['telegramPhone'] as String? ??
+              ownerData['telegram_phone'] as String? ??
+              ownerData['phone'] as String?;
         });
       } else {
         final fallback = _currentMess.telegramPhone?.trim();
         if (fallback != null && fallback.isNotEmpty) {
           setState(() {
-            if (TelegramService.isValidPhone(fallback)) {
-              _ownerTelegramPhone = fallback;
-            }
+            _ownerTelegramPhone = fallback;
           });
         }
       }
@@ -166,9 +164,7 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
           fallback.isNotEmpty &&
           (_ownerTelegramPhone == null || _ownerTelegramPhone!.isEmpty)) {
         setState(() {
-          if (TelegramService.isValidPhone(fallback)) {
-            _ownerTelegramPhone = fallback;
-          }
+          _ownerTelegramPhone = fallback;
         });
       }
     } finally {
@@ -307,29 +303,55 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
   }
 
   /// Handle Telegram contact
-  Future<void> _handleTelegramContact() async {
-    final fallback = _currentMess.telegramPhone?.trim();
-    final selfPhone = context.read<AuthProvider>().currentUser?.telegramPhone;
-    final phone =
-        _ownerTelegramPhone ??
-        ((fallback != null && TelegramService.isValidPhone(fallback))
-            ? fallback
-            : null);
-
-    if (phone == null || phone.isEmpty) {
+  /// Handle in-app chat contact
+  Future<void> _handleChatContact() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final currentUser = auth.currentUser;
+    if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Owner has not set up Telegram contact yet'),
-          backgroundColor: AppColors.warning,
-        ),
+        const SnackBar(content: Text('Please sign in to message the owner.')),
       );
       return;
     }
 
-    await TelegramService.openTelegramSmart(
-      context: context,
-      phone: phone,
-      selfPhone: selfPhone,
+    final ownerId = _currentMess.ownerid;
+    if (ownerId.isEmpty || ownerId == currentUser.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot message this listing.')),
+      );
+      return;
+    }
+
+    // Resolve owner name and photo
+    String ownerName = 'Owner';
+    String? ownerPhoto;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(ownerId)
+          .get();
+      if (doc.exists) {
+        ownerName = doc.data()?['name'] as String? ?? 'Owner';
+        ownerPhoto = doc.data()?['profilePicture'] as String?;
+      }
+    } catch (_) {}
+
+    final name = currentUser.name.trim();
+    final intro = name.isNotEmpty ? "Hi, I'm $name." : 'Hi,';
+    final message =
+        "$intro I'm interested in your mess service '${_currentMess.name}'. Can you share the menu and pricing?";
+
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatDetailScreen(
+          userId: ownerId,
+          userName: ownerName,
+          userPhoto: ownerPhoto,
+          initialMessage: message,
+        ),
+      ),
     );
   }
 
@@ -446,14 +468,7 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = _currentMess.telegramPhone?.trim();
-    final fallbackIsPhone =
-        fallback != null &&
-        fallback.isNotEmpty &&
-        TelegramService.isValidPhone(fallback);
-    final hasTelegram =
-        (_ownerTelegramPhone != null && _ownerTelegramPhone!.isNotEmpty) ||
-        (fallbackIsPhone);
+    final hasTelegram = true; // Always show chat button
 
     return Scaffold(
       body: _isLoadingDetails
@@ -464,6 +479,25 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
                 SliverAppBar(
                   expandedHeight: 250,
                   pinned: true,
+                  backgroundColor: AppColors.primary,
+                  leading: IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+                    ),
+                  ),
                   actions: [
                     Padding(
                       padding: const EdgeInsets.all(8),
@@ -508,15 +542,36 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
                                 ),
                               )
                             : Container(
-                                color: AppColors.background,
+                                decoration: const BoxDecoration(
+                                  gradient: AppColors.headerGradient,
+                                ),
                                 child: const Center(
                                   child: Icon(
                                     Icons.restaurant,
                                     size: 64,
-                                    color: AppColors.textSubtle,
+                                    color: Colors.white54,
                                   ),
                                 ),
                               ),
+                        // Gradient overlay for readability
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: 80,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.4),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -861,15 +916,9 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
   }
 
   Widget _buildActionButtons(bool hasTelegram) {
-    final fallback = _currentMess.telegramPhone?.trim();
-    final fallbackIsPhone =
-        fallback != null &&
-        fallback.isNotEmpty &&
-        TelegramService.isValidPhone(fallback);
-
     return Column(
       children: [
-        // Primary Actions Row - Call and Telegram
+        // Primary Actions Row - Call and Message
         Row(
           children: [
             // Call Button
@@ -889,58 +938,21 @@ class _MessDetailScreenState extends State<MessDetailScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            // Telegram Button
+            // Message Owner Button
             Expanded(
-              child: hasTelegram
-                  ? TelegramButton(
-                      phone:
-                          _ownerTelegramPhone ??
-                          (fallbackIsPhone ? fallback : null),
-                      onPressed: _handleTelegramContact,
-                      isOutlined: true,
-                    )
-                  : OutlinedButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Owner has not set up Telegram yet. Try calling instead.',
-                            ),
-                            backgroundColor: AppColors.warning,
-                          ),
-                        );
-                      },
-                      icon: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0088CC).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(
-                          Icons.send,
-                          size: 16,
-                          color: Color(0xFF0088CC),
-                        ),
-                      ),
-                      label: const Text(
-                        'Telegram',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0088CC),
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0088CC),
-                        side: const BorderSide(
-                          color: Color(0xFF0088CC),
-                          width: 1.5,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
+              child: ElevatedButton.icon(
+                onPressed: _handleChatContact,
+                icon: const Icon(Icons.chat_rounded, size: 20),
+                label: const Text('Message'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

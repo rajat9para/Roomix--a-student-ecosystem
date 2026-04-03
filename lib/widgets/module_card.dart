@@ -90,18 +90,18 @@ class _ModuleCardState extends State<ModuleCard> with SingleTickerProviderStateM
                 angle: _rotationAnimation.value,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.primarySurface,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: widget.module.color.withOpacity(0.08),
+                        color: AppColors.primary.withOpacity(0.08),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
                       // Enhanced shadow on hover
                       if (_isHovered)
                         BoxShadow(
-                          color: widget.module.color.withOpacity(0.25),
+                          color: AppColors.primary.withOpacity(0.2),
                           blurRadius: 30,
                           offset: Offset(0, 20 * _elevationAnimation.value),
                           spreadRadius: 2,
@@ -109,8 +109,8 @@ class _ModuleCardState extends State<ModuleCard> with SingleTickerProviderStateM
                     ],
                     border: Border.all(
                       color: _isHovered
-                          ? widget.module.color.withOpacity(0.4)
-                          : AppColors.border.withOpacity(0.5),
+                          ? AppColors.primary.withOpacity(0.4)
+                          : AppColors.primary.withOpacity(0.1),
                       width: _isHovered ? 2 : 1,
                     ),
                   ),

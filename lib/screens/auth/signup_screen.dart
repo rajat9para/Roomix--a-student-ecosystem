@@ -84,6 +84,15 @@ class _SignupScreenState extends State<SignupScreen>
       return;
     }
 
+    // Student email domain validation
+    if (_selectedRole == 'student') {
+      final domain = email.split('@').last.toLowerCase();
+      if (!domain.endsWith('.ac.in')) {
+        _showErrorSnackbar('Students must use an institutional email (e.g., name@college.ac.in)');
+        return;
+      }
+    }
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
@@ -212,40 +221,44 @@ class _SignupScreenState extends State<SignupScreen>
     final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppColors.backgroundGradient,
+        ),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
 
-                // Back Button
-                _buildBackButton(),
+                  // Back Button
+                  _buildBackButton(),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // Hero Image/Gradient
-                _buildHeroSection(),
+                  // Hero Image/Gradient
+                  _buildHeroSection(),
 
-                const SizedBox(height: 32),
+                  const SizedBox(height: 32),
 
-                // Header
-                _buildHeader(),
+                  // Header
+                  _buildHeader(),
 
-                const SizedBox(height: 32),
+                  const SizedBox(height: 32),
 
-                // Role Selector
-                _buildRoleSelector(),
+                  // Role Selector
+                  _buildRoleSelector(),
 
-                const SizedBox(height: 32),
+                  const SizedBox(height: 32),
 
-                // Form
-                _buildForm(authProvider),
-              ],
+                  // Form
+                  _buildForm(authProvider),
+                ],
+              ),
             ),
           ),
         ),
@@ -260,12 +273,19 @@ class _SignupScreenState extends State<SignupScreen>
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: AppColors.background,
+          color: AppColors.accent,
           borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: const Icon(
-          Icons.arrow_back_ios_new,
-          color: AppColors.primary,
+          Icons.arrow_back_rounded,
+          color: Colors.white,
           size: 20,
         ),
       ),
@@ -837,39 +857,43 @@ class _SignupScreenState extends State<SignupScreen>
     return SizedBox(
       width: double.infinity,
       height: 56,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: AppColors.primaryButtonDecoration,
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
-        ),
-        child: isLoading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    text,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+          child: isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward, size: 20),
-                ],
-              ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      text,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward, size: 20),
+                  ],
+                ),
+        ),
       ),
     );
   }

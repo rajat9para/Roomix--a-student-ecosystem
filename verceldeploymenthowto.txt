@@ -1,0 +1,308 @@
+====================================================================
+          VERCEL DEPLOYMENT GUIDE — ROOMIX FLUTTER WEB APP
+====================================================================
+
+This guide explains how to deploy the Roomix Flutter app as a 
+web application on Vercel, step by step from scratch.
+
+====================================================================
+  PREREQUISITES
+====================================================================
+
+1. Flutter SDK installed (3.x or later)
+   - Verify: Open terminal and type:  flutter --version
+   - If not installed, download from https://docs.flutter.dev/get-started/install
+
+2. Git installed
+   - Verify: Open terminal and type:  git --version
+
+3. A GitHub account (https://github.com)
+
+4. A Vercel account (https://vercel.com — free tier available)
+   - Sign up using your GitHub account for easy integration
+
+====================================================================
+  STEP 1: ENABLE FLUTTER WEB SUPPORT
+====================================================================
+
+Open your terminal (PowerShell or Command Prompt) and run:
+
+    flutter config --enable-web
+
+Then verify web is enabled:
+
+    flutter devices
+
+You should see "Chrome" or "Edge" in the list of available devices.
+
+====================================================================
+  STEP 2: RUN THE WEB APP LOCALLY (TEST FIRST)
+====================================================================
+
+Navigate to your project folder:
+
+    cd "c:\Telegram Desktop\ROOMIX-UPDATED\drive-download-20260214T053744Z-1-001"
+
+Run the app in Chrome:
+
+    flutter run -d chrome
+
+This will open the app in your browser. Test it to make sure 
+all pages load correctly:
+- Login screen
+- Home screen with modules
+- Marketplace (Buy & Sell)
+- Lost & Found
+- Mess Services
+- Profile page
+
+If everything works, proceed to build.
+
+====================================================================
+  STEP 3: BUILD THE WEB APP FOR PRODUCTION
+====================================================================
+
+Run the production build command:
+
+    flutter build web --release --web-renderer html
+
+IMPORTANT: We use "--web-renderer html" for best compatibility 
+with all browsers. The "canvaskit" renderer is larger but handles 
+complex graphics better. For Roomix, html is recommended.
+
+After the build completes, the output will be in:
+
+    build/web/
+
+This folder contains all the files needed for deployment:
+- index.html (main entry point)
+- main.dart.js (compiled Dart code)
+- assets/ (fonts, images, etc.)
+- favicon.png, manifest.json, etc.
+
+====================================================================
+  STEP 4: PUSH YOUR CODE TO GITHUB
+====================================================================
+
+If you haven't already set up a GitHub repository:
+
+A) Create a new repository on GitHub:
+   - Go to https://github.com/new
+   - Name it: "Roomix--a-student-ecosystem" (or your preferred name)
+   - Make it Public or Private as desired
+   - DO NOT initialize with README (you already have one)
+
+B) Initialize git and push (if not done already):
+
+    cd "c:\Telegram Desktop\ROOMIX-UPDATED\drive-download-20260214T053744Z-1-001"
+    git init
+    git add .
+    git commit -m "Roomix v2 - UI overhaul + web deployment ready"
+    git branch -M main
+    git remote add origin https://github.com/YOUR_USERNAME/Roomix--a-student-ecosystem.git
+    git push -u origin main
+
+If the repo already exists and you just need to push updates:
+
+    git add .
+    git commit -m "UI overhaul + web deployment"
+    git push origin main
+
+====================================================================
+  STEP 5: CONFIGURE VERCEL FOR FLUTTER WEB
+====================================================================
+
+A) Log in to Vercel:
+   - Go to https://vercel.com
+   - Click "Login" → "Continue with GitHub"
+
+B) Import your repository:
+   - Click "Add New..." → "Project"
+   - Select your Roomix repository from the list
+   - If it doesn't appear, click "Adjust GitHub App Permissions"
+     and grant access to the repository
+
+C) Configure the Build Settings:
+   
+   IMPORTANT — You MUST set these correctly:
+
+   Framework Preset:   "Other"
+   
+   Build Command:      flutter/bin/flutter build web --release --web-renderer html
+   
+   Output Directory:   build/web
+   
+   Install Command:    
+     (Leave empty or use the custom script below)
+
+D) BETTER APPROACH — Use a vercel.json config file:
+
+   We've already configured this in the project. The vercel.json 
+   file in the project root handles the build process automatically.
+
+====================================================================
+  STEP 6: CREATE THE VERCEL CONFIGURATION FILE
+====================================================================
+
+A vercel.json file has been created in your project root.
+It tells Vercel how to serve the Flutter web app correctly.
+
+Important: The file routes ALL requests to index.html so that 
+Flutter's internal router handles navigation properly.
+
+Without this, refreshing a page or navigating directly to a URL 
+like /market would show a 404 error.
+
+====================================================================
+  STEP 7: DEPLOY ON VERCEL
+====================================================================
+
+Option A: AUTOMATED DEPLOYMENT (Recommended)
+
+Since we're using a pre-built approach:
+
+1. First, build locally:
+       flutter build web --release --web-renderer html
+
+2. Push ONLY the build/web folder to a separate deployment branch 
+   OR push the entire project and configure Vercel to use build/web.
+
+3. On Vercel:
+   - Import your GitHub repository
+   - Set "Framework Preset" to "Other"
+   - Set "Output Directory" to "build/web"
+   - Leave "Build Command" EMPTY (since you built locally)
+   - Click "Deploy"
+
+Option B: MANUAL DEPLOYMENT (Drag & Drop)
+
+1. Build locally:
+       flutter build web --release --web-renderer html
+
+2. Go to https://vercel.com/new
+
+3. Scroll down and look for "Import from folder" or 
+   "Browse" option
+
+4. Select the build/web folder from your project
+
+5. Click Deploy
+
+Option C: VERCEL CLI (Command Line)
+
+1. Install Vercel CLI globally:
+       npm install -g vercel
+
+2. Navigate to your build output:
+       cd "c:\Telegram Desktop\ROOMIX-UPDATED\drive-download-20260214T053744Z-1-001\build\web"
+
+3. Run the deploy command:
+       vercel
+
+4. Follow the prompts:
+   - Log in to Vercel (it opens the browser)
+   - Set up and deploy: Yes
+   - Select your scope (your Vercel account)
+   - Link to existing project: No (for first time)
+   - Project name: roomix (or your preference)
+   - Which directory is the code: ./ (current directory)
+   - Override settings: No
+
+5. For production deployment:
+       vercel --prod
+
+====================================================================
+  STEP 8: SET ENVIRONMENT VARIABLES (IF NEEDED)
+====================================================================
+
+If your app uses Firebase, the web config is already embedded 
+in web/index.html via the Firebase SDK scripts.
+
+However, if you need to set any environment variables:
+
+1. Go to your Vercel project dashboard
+2. Click "Settings" → "Environment Variables"
+3. Add any required variables
+
+For Firebase web:
+- The Firebase config is already in your index.html
+- No additional env vars are typically needed
+
+====================================================================
+  STEP 9: CUSTOM DOMAIN (OPTIONAL)
+====================================================================
+
+1. Go to your Vercel project dashboard
+2. Click "Settings" → "Domains"
+3. Add your custom domain (e.g., roomix.in)
+4. Update your domain's DNS records as instructed by Vercel
+   - Usually adding a CNAME record pointing to cname.vercel-dns.com
+
+====================================================================
+  STEP 10: VERIFY DEPLOYMENT
+====================================================================
+
+After deployment, Vercel gives you a URL like:
+   https://roomix-xxxx.vercel.app
+
+Visit the URL and verify:
+✓ Login page loads correctly
+✓ Google Sign-In works (add the Vercel domain to Firebase 
+  authorized domains: Firebase Console → Authentication → Settings)
+✓ All navigation works (PG, Mess, Market, Lost & Found)
+✓ Images load from Cloudinary
+✓ Forms submit correctly
+✓ Responsive on mobile and desktop
+
+IMPORTANT: Add your Vercel URL to Firebase authorized domains:
+1. Go to Firebase Console
+2. Authentication → Settings → Authorized domains
+3. Add: roomix-xxxx.vercel.app (your Vercel URL)
+4. Also add any custom domain you configured
+
+====================================================================
+  TROUBLESHOOTING
+====================================================================
+
+Problem: Pages show 404 on refresh
+Solution: Make sure vercel.json has the rewrite rules (see Step 6)
+
+Problem: Google Sign-In doesn't work on web
+Solution: Add the Vercel domain to Firebase authorized domains
+          AND add it to Google Cloud Console OAuth redirect URIs
+
+Problem: Build fails on Vercel
+Solution: Build locally first with "flutter build web --release"
+          and deploy just the build/web folder
+
+Problem: Images or assets don't load
+Solution: Check that asset paths are correct in pubspec.yaml
+          and that Cloudinary URLs are accessible
+
+Problem: App looks different on web vs mobile
+Solution: Some Flutter plugins don't support web. Check for 
+          "Unsupported operation" errors in browser console.
+
+====================================================================
+  WHAT WAS DONE TO PREPARE THIS PROJECT FOR WEB
+====================================================================
+
+1. ✅ Flutter web support enabled (flutter config --enable-web)
+2. ✅ Web directory (web/) already exists with index.html and assets
+3. ✅ Firebase web SDK configured in web/index.html
+4. ✅ vercel.json created for proper routing
+5. ✅ UI tested and responsive for web
+6. ✅ All Colors and gradients are cross-platform compatible
+7. ✅ Image handling uses CachedNetworkImage (web compatible)
+
+====================================================================
+  QUICK REFERENCE — DEPLOY IN 3 COMMANDS
+====================================================================
+
+    flutter build web --release --web-renderer html
+    cd build/web
+    vercel --prod
+
+====================================================================
+  END OF GUIDE
+====================================================================

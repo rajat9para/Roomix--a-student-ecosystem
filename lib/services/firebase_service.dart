@@ -1026,6 +1026,7 @@ class FirebaseService {
     required String location,
     required String contact,
     String? image,
+    List<String>? images,
     required String userId,
   }) async {
     try {
@@ -1037,6 +1038,7 @@ class FirebaseService {
         'location': location,
         'contact': contact,
         'image': image,
+        'images': images ?? [],
         'userId': userId,
         'claimStatus': 'Unclaimed',
         'createdAt': Timestamp.now(),

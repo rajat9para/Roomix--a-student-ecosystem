@@ -1,0 +1,100 @@
+============================================
+  ROOMIX APP — BUILD & RUN STEPS
+============================================
+
+PREREQUISITES:
+  - Flutter SDK installed (flutter --version to check)
+  - Android Studio installed with Android SDK
+  - USB Debugging enabled on your phone (Settings > Developer Options > USB Debugging)
+  - Phone connected via USB cable
+
+============================================
+STEP 1: Open Terminal (PowerShell / CMD)
+============================================
+
+  cd "c:\Users\ASUS\Downloads\Telegram Desktop\ROOMIX-UPDATED\drive-download-20260214T053744Z-1-001"
+
+============================================
+STEP 2: Clean previous build
+============================================
+
+  flutter clean
+
+============================================
+STEP 3: Get dependencies
+============================================
+
+  flutter pub get
+
+============================================
+STEP 4: Check connected devices
+============================================
+
+  flutter devices
+
+  → You should see your phone listed. If not:
+    - Make sure USB cable is connected
+    - Accept "Allow USB Debugging" popup on your phone
+    - Try: adb devices
+
+============================================
+STEP 5: Run the app (DEBUG mode on phone)
+============================================
+
+  flutter run
+
+  → This will build and install the app on your connected phone
+  → Wait for "Running on..." message
+  → App will open on your phone automatically
+
+============================================
+STEP 6: Build APK (to share/install manually)
+============================================
+
+  flutter build apk --release
+
+  → APK will be saved at:
+    build\app\outputs\flutter-apk\app-release.apk
+
+  → Copy this APK to your phone and install it
+
+============================================
+STEP 7: Build APK (split by architecture — smaller size)
+============================================
+
+  flutter build apk --split-per-abi --release
+
+  → Generates separate APKs:
+    build\app\outputs\flutter-apk\app-arm64-v8a-release.apk   (most phones)
+    build\app\outputs\flutter-apk\app-armeabi-v7a-release.apk (older phones)
+    build\app\outputs\flutter-apk\app-x86_64-release.apk      (emulators)
+
+  → Use arm64-v8a for most modern phones
+
+============================================
+TROUBLESHOOTING
+============================================
+
+  If "flutter run" fails:
+    1. flutter doctor        → Check for issues
+    2. flutter clean         → Clean and retry
+    3. flutter pub get       → Re-fetch dependencies
+
+  If changes not reflecting:
+    1. Stop the running app (press 'q' in terminal)
+    2. flutter clean
+    3. flutter pub get
+    4. flutter run
+
+  If Gradle errors:
+    1. Delete the "build" folder manually
+    2. Delete "android\.gradle" folder
+    3. Run: flutter clean && flutter pub get && flutter run
+
+============================================
+QUICK ONE-LINER (clean build & run)
+============================================
+
+  flutter clean && flutter pub get && flutter run
+
+============================================

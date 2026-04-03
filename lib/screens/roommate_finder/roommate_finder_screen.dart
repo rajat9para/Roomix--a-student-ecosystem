@@ -12,7 +12,7 @@ import 'package:roomix/widgets/filter_bottom_sheet.dart';
 import 'package:roomix/widgets/sort_chip.dart';
 import 'package:roomix/widgets/bookmark_button.dart';
 import 'package:roomix/screens/roommate_finder/profile_creation_screen.dart';
-import 'package:roomix/services/telegram_service.dart';
+import 'package:roomix/screens/messages/chat_detail_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:roomix/utils/smooth_navigation.dart';
 
@@ -740,53 +740,20 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () async {
-                            try {
-                              final auth = context.read<AuthProvider>();
-                              final userDoc = await FirebaseFirestore.instance
-                                  .collection('users')
-                                  .doc(match.userId)
-                                  .get();
-                              final userData = userDoc.data();
-                              final telegramPhone =
-                                  TelegramService.extractPhoneFromUserData(
-                                    userData,
-                                  );
-                              if (telegramPhone != null &&
-                                  telegramPhone.isNotEmpty) {
-                                if (context.mounted) {
-                                  await TelegramService.openTelegramSmart(
-                                    context: context,
-                                    phone: telegramPhone,
-                                    selfPhone: auth.currentUser?.telegramPhone,
-                                  );
-                                }
-                              } else {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'This user hasn\'t set up their Telegram contact yet. They need to add it in their Account Settings.',
-                                      ),
-                                      backgroundColor: AppColors.warning,
-                                    ),
-                                  );
-                                }
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Could not load roommate details',
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
-                              }
-                            }
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatDetailScreen(
+                                  userId: match.userId,
+                                  userName: match.userName,
+                                  userPhoto: profilePic,
+                                  initialMessage: "Hi, I'm ${context.read<AuthProvider>().currentUser?.name ?? 'someone'}. I saw your roommate profile and I'm interested! Let's connect.",
+                                ),
+                              ),
+                            );
                           },
-                          icon: const Icon(Icons.send, size: 16),
+                          icon: const Icon(Icons.chat_rounded, size: 16),
                           label: const Text('Message'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
@@ -1085,60 +1052,31 @@ class _RoommateFinderScreenState extends State<RoommateFinderScreen> {
                 const SizedBox(height: 20),
               ],
 
-              // Message on Telegram button
+              // Message button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () async {
-                    try {
-                      final auth = context.read<AuthProvider>();
-                      final userDoc = await FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(match.userId)
-                          .get();
-                      final userData = userDoc.data();
-                      final telegramPhone =
-                          TelegramService.extractPhoneFromUserData(userData);
-
-                      if (telegramPhone != null && telegramPhone.isNotEmpty) {
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          await TelegramService.openTelegramSmart(
-                            context: context,
-                            phone: telegramPhone,
-                            selfPhone: auth.currentUser?.telegramPhone,
-                          );
-                        }
-                      } else {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Roommate has not set up Telegram contact yet',
-                              ),
-                              backgroundColor: AppColors.warning,
-                            ),
-                          );
-                        }
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Could not load roommate details'),
-                            backgroundColor: AppColors.error,
-                          ),
-                        );
-                      }
-                    }
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatDetailScreen(
+                          userId: match.userId,
+                          userName: match.userName,
+                          userPhoto: profilePic,
+                          initialMessage: "Hi, I'm ${context.read<AuthProvider>().currentUser?.name ?? 'someone'}. I saw your roommate profile and I'm interested! Let's connect.",
+                        ),
+                      ),
+                    );
                   },
-                  icon: const Icon(Icons.send, size: 18),
+                  icon: const Icon(Icons.chat_rounded, size: 18),
                   label: const Text(
-                    'Message on Telegram',
+                    'Message',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0088CC),
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(

@@ -53,25 +53,41 @@ class _MarketScreenState extends State<MarketScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.scaffoldBackground,
       appBar: AppBar(
         title: const Text(
           'Buy & Sell',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: AppColors.textDark,
+            color: Colors.white,
           ),
         ),
-        backgroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: AppColors.headerGradient,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppColors.textDark,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+          ),
+        ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.primary,
+          indicatorColor: Colors.white,
           indicatorWeight: 3,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textGray,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           tabs: const [
             Tab(text: 'All Items'),
@@ -83,13 +99,20 @@ class _MarketScreenState extends State<MarketScreen> with SingleTickerProviderSt
         children: [
           // Search bar
           Container(
-            color: Colors.white,
+            color: AppColors.primarySurface,
             padding: const EdgeInsets.all(16),
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: TextField(
                 controller: _searchController,
@@ -97,7 +120,7 @@ class _MarketScreenState extends State<MarketScreen> with SingleTickerProviderSt
                 decoration: InputDecoration(
                   hintText: 'Search items...',
                   hintStyle: const TextStyle(color: AppColors.textGray),
-                  prefixIcon: const Icon(Icons.search, color: AppColors.textGray),
+                  prefixIcon: const Icon(Icons.search, color: AppColors.primary),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, color: AppColors.textGray),

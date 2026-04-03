@@ -30,7 +30,9 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
 
-  File? _imageFile;
+  // Multi-image support (up to 4)
+  final List<File> _imageFiles = [];
+  static const int _maxImages = 4;
   final ImagePicker _picker = ImagePicker();
   final CloudinaryUploadService _storageService = CloudinaryUploadService();
 
@@ -73,13 +75,37 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked != null) {
+  Future<void> _pickImages() async {
+    if (_imageFiles.length >= _maxImages) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Maximum $_maxImages images allowed'),
+          backgroundColor: AppColors.accent,
+        ),
+      );
+      return;
+    }
+
+    final remaining = _maxImages - _imageFiles.length;
+    final List<XFile> picked = await _picker.pickMultiImage(
+      imageQuality: 80,
+      limit: remaining,
+    );
+    if (picked.isNotEmpty) {
       setState(() {
-        _imageFile = File(picked.path);
+        for (var xFile in picked) {
+          if (_imageFiles.length < _maxImages) {
+            _imageFiles.add(File(xFile.path));
+          }
+        }
       });
     }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _imageFiles.removeAt(index);
+    });
   }
 
   Future<void> _submitForm() async {
@@ -91,12 +117,16 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
       final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
       if (user == null) throw Exception('User not logged in');
 
-      String? imageUrl;
-      if (_imageFile != null) {
-        imageUrl = await _storageService.uploadImage(
-          file: _imageFile!,
+      // Upload all images
+      List<String> imageUrls = [];
+      for (var imageFile in _imageFiles) {
+        final url = await _storageService.uploadImage(
+          file: imageFile,
           folder: 'lost_found',
         );
+        if (url != null) {
+          imageUrls.add(url);
+        }
       }
 
       final item = LostItemModel(
@@ -106,7 +136,8 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
         status: _selectedType, // 'Lost' or 'Found'
         date: _selectedDate,
         location: _locationController.text.trim(),
-        image: imageUrl,
+        image: imageUrls.isNotEmpty ? imageUrls.first : null,
+        images: imageUrls.isNotEmpty ? imageUrls : null,
         contact: _contactController.text.trim(),
         userId: user.id,
         claimStatus: 'Unclaimed',
@@ -176,12 +207,22 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Report Item'),
-        backgroundColor: Colors.transparent,
+        title: const Text('Report Item', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppColors.primary,
         elevation: 0,
-        foregroundColor: AppColors.textDark,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+          ),
+        ),
       ),
-      extendBodyBehindAppBar: true,
       body: Container(
         decoration: const BoxDecoration(
           gradient: AppColors.backgroundGradient,
@@ -228,7 +269,7 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_today, size: 20, color: AppColors.textGray),
+                          const Icon(Icons.calendar_today, size: 20, color: AppColors.primary),
                           const SizedBox(width: 12),
                           Text(
                             DateFormat('yyyy-MM-dd').format(_selectedDate),
@@ -257,35 +298,9 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  _buildLabel('Image (Optional)'),
-                  GestureDetector(
-                    onTap: _pickImage,
-                    child: Container(
-                      height: 120,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: _imageFile != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.file(_imageFile!, fit: BoxFit.cover),
-                            )
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.primary.withOpacity(0.5)),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Tap to upload image',
-                                  style: TextStyle(color: AppColors.textGray, fontSize: 13),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
+                  // Multi-Image Upload Grid (up to 4)
+                  _buildLabel('Images (Up to $_maxImages)'),
+                  _buildImageGrid(),
                   const SizedBox(height: 16),
 
                   _buildLabel('Contact Info *'),
@@ -296,29 +311,35 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
                   ),
                   const SizedBox(height: 32),
 
+                  // Submit Button — Orange CTA
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submitForm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _selectedType == 'Lost' ? Colors.red : Colors.green,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      decoration: AppColors.accentButtonDecoration,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
-                      ),
-                      child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                              'Report ${_selectedType} Item',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : Text(
+                                'Report ${_selectedType} Item',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -328,19 +349,130 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
     );
   }
 
+  /// Multi-image grid with add button
+  Widget _buildImageGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.2,
+      ),
+      itemCount: _imageFiles.length < _maxImages
+          ? _imageFiles.length + 1
+          : _imageFiles.length,
+      itemBuilder: (context, index) {
+        if (index == _imageFiles.length && _imageFiles.length < _maxImages) {
+          // Add button
+          return GestureDetector(
+            onTap: _pickImages,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.primarySurface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.primary.withOpacity(0.3),
+                  width: 2,
+                  strokeAlign: BorderSide.strokeAlignInside,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.add_photo_alternate_rounded,
+                      size: 28,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${_imageFiles.length}/$_maxImages',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Image tile with remove button
+        return Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.file(
+                _imageFiles[index],
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+            Positioned(
+              top: 6,
+              right: 6,
+              child: GestureDetector(
+                onTap: () => _removeImage(index),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ),
+            if (index == 0)
+              Positioned(
+                bottom: 6,
+                left: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Cover',
+                    style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildTypeButton(String type, Color color) {
     final isSelected = _selectedType == type;
     return GestureDetector(
       onTap: () => setState(() => _selectedType = type),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? color.withOpacity(0.12) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? color : AppColors.border,
             width: isSelected ? 2 : 1,
           ),
+          boxShadow: isSelected
+              ? [BoxShadow(color: color.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))]
+              : null,
         ),
         child: Center(
           child: Text(
@@ -364,6 +496,7 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
         style: const TextStyle(
           fontWeight: FontWeight.w600,
           color: AppColors.textDark,
+          fontSize: 14,
         ),
       ),
     );
@@ -381,7 +514,11 @@ class _ReportItemScreenState extends State<ReportItemScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AppColors.border),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );

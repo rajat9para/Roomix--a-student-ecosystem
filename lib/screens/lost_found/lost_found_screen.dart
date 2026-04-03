@@ -70,7 +70,7 @@ class _LostFoundScreenState extends State<LostFoundScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.scaffoldBackground,
       appBar: AppBar(
         title: const Text(
           'Lost & Found',
@@ -80,9 +80,25 @@ class _LostFoundScreenState extends State<LostFoundScreen>
             color: Colors.white,
           ),
         ),
-        backgroundColor: AppColors.primary,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: AppColors.headerGradient,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+          ),
+        ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -319,18 +335,7 @@ class _LostFoundScreenState extends State<LostFoundScreen>
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(color: AppColors.border, width: 1),
-        ),
+        decoration: AppColors.elevatedCardDecoration,
         child: Column(
           children: [
             // Image Section with Status Overlay
@@ -343,9 +348,9 @@ class _LostFoundScreenState extends State<LostFoundScreen>
                   child: SizedBox(
                     height: imageHeight,
                     width: double.infinity,
-                    child: item.image != null && item.image!.isNotEmpty
+                    child: item.allImages.isNotEmpty
                         ? CachedNetworkImage(
-                            imageUrl: item.image!,
+                            imageUrl: item.allImages.first,
                             fit: BoxFit.cover,
                             placeholder: (context, url) =>
                                 Container(color: Colors.grey[200]),

@@ -296,62 +296,75 @@ class _RoomScreenState extends State<RoomScreen> {
     _authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.scaffoldBackground,
       appBar: AppBar(
-        title: const Text('Find Your Room'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textDark,
+        title: const Text('Find Your Room', style: TextStyle(color: Colors.white)),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+        ),
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+          ),
+        ),
         actions: [
           Badge(
             label: Text('${_activeFilterCount}'),
             isLabelVisible: _activeFilterCount > 0,
             child: IconButton(
-              icon: const Icon(Icons.tune),
+              icon: const Icon(Icons.tune, color: Colors.white),
               onPressed: _showFilterBottomSheet,
             ),
           ),
         ],
       ),
       body: Container(
-        color: Colors.white,
+        color: AppColors.scaffoldBackground,
         child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(color: AppColors.textDark),
-                decoration: InputDecoration(
-                  hintText: 'Search rooms...',
-                  hintStyle: const TextStyle(color: AppColors.textGray),
-                  prefixIcon: const Icon(Icons.search, color: AppColors.primary),
-
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    color: AppColors.textGray,
-                    onPressed: () {
-                      _searchController.clear();
-                      _applyFilters();
-                    },
-                  )
-                      : null,
-
-                  filled: true,
-                  fillColor: Colors.white,
-
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.12)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: AppColors.textDark),
+                  decoration: InputDecoration(
+                    hintText: 'Search rooms...',
+                    hintStyle: const TextStyle(color: AppColors.textGray),
+                    prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      color: AppColors.textGray,
+                      onPressed: () {
+                        _searchController.clear();
+                        _applyFilters();
+                      },
+                    )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
                 ),
               ),
@@ -477,7 +490,7 @@ class _RoomScreenState extends State<RoomScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)]),
+                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text('Clear All Filters',
@@ -507,7 +520,7 @@ class _RoomScreenState extends State<RoomScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)]),
+                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text('Retry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),

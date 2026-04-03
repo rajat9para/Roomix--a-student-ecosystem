@@ -8,6 +8,7 @@ class LostItemModel {
   final DateTime date;
   final String? location;
   final String? image;
+  final List<String>? images; // Multi-image support (up to 4)
   final String contact;
   final String? userId;
   final String claimStatus;
@@ -24,6 +25,7 @@ class LostItemModel {
     required this.date,
     this.location,
     this.image,
+    this.images,
     required this.contact,
     this.userId,
     required this.claimStatus,
@@ -32,6 +34,18 @@ class LostItemModel {
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// Get all images (handles both legacy single `image` and new `images` list)
+  List<String> get allImages {
+    final List<String> all = [];
+    if (images != null && images!.isNotEmpty) {
+      all.addAll(images!);
+    }
+    if (image != null && image!.isNotEmpty && !all.contains(image)) {
+      all.insert(0, image!);
+    }
+    return all;
+  }
 
   /// Safely parse a date field that could be a Timestamp, String, or null
   static DateTime _parseDate(dynamic value, {DateTime? fallback}) {
@@ -56,6 +70,9 @@ class LostItemModel {
       date: _parseDate(json['date']),
       location: json['location'],
       image: json['image'],
+      images: json['images'] != null
+          ? List<String>.from(json['images'])
+          : null,
       contact: json['contact'] ?? '',
       userId: json['userId'] ?? json['user']?['_id'] ?? json['user'],
       claimStatus: json['claimStatus'] ?? 'Unclaimed',
@@ -75,6 +92,7 @@ class LostItemModel {
       'date': date.toIso8601String(),
       'location': location,
       'image': image,
+      'images': images,
       'contact': contact,
       'user': userId,
       'claimStatus': claimStatus,

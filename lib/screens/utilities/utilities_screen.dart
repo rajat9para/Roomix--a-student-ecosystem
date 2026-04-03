@@ -170,60 +170,40 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
     final isOwner = authProvider.currentUser?.role == 'owner';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.scaffoldBackground,
       appBar: AppBar(
         title: const Text(
           'Nearby Utilities',
           style: TextStyle(
-            color: AppColors.textDark,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textDark,
-        iconTheme: const IconThemeData(color: AppColors.textDark),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+        ),
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+          ),
+        ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Stack(
-              children: [
-                Center(
-                  child: GestureDetector(
-                    onTap: _showFilterBottomSheet,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.background,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Icon(Icons.tune, size: 20, color: AppColors.textDark),
-                    ),
-                  ),
-                ),
-                if (_getActiveFilterCount() > 0)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.tertiary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        _getActiveFilterCount().toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+          Badge(
+            label: Text('${_getActiveFilterCount()}'),
+            isLabelVisible: _getActiveFilterCount() > 0,
+            child: IconButton(
+              icon: const Icon(Icons.tune, color: Colors.white),
+              onPressed: _showFilterBottomSheet,
             ),
           ),
           if (isAdmin)
@@ -236,16 +216,15 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                     const AdminUtilityModerationScreen(),
                   );
                 },
-                child: Row(
+                child: const Row(
                   children: [
-                    Icon(Icons.admin_panel_settings,
-                        size: 20, color: AppColors.primary),
-                    const SizedBox(width: 4),
-                    const Text(
+                    Icon(Icons.admin_panel_settings, size: 20, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text(
                       'Moderate',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.primary,
+                        color: Colors.white,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -256,7 +235,7 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
         ],
       ),
       body: Container(
-        color: AppColors.background,
+        color: AppColors.scaffoldBackground,
         child: Column(
           children: [
             // Search bar
@@ -266,9 +245,10 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.12)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: AppColors.primary.withOpacity(0.06),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -557,21 +537,7 @@ class UtilityCard extends StatelessWidget {
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.border,
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: AppColors.elevatedCardDecoration,
         child: Container(
           padding: const EdgeInsets.all(12),
           child: Column(

@@ -158,9 +158,9 @@ class _CustomButtonState extends State<CustomButton> with SingleTickerProviderSt
             ? BorderSide(color: widget.borderColor!, width: 1.5) 
             : BorderSide.none,
         ),
-        elevation: 0,
+        elevation: 3,
         padding: widget.padding ?? const EdgeInsets.symmetric(vertical: 12),
-        shadowColor: Colors.transparent,
+        shadowColor: widget.color.withOpacity(0.35),
       ),
       child: _buildButtonContent(textColor: textColor),
     );
@@ -172,15 +172,15 @@ class _CustomButtonState extends State<CustomButton> with SingleTickerProviderSt
         borderRadius: BorderRadius.circular(widget.borderRadius!),
         gradient: LinearGradient(
           colors: [
-            widget.gradientStart ?? const Color(0xFF8B5CF6),
-            widget.gradientEnd ?? const Color(0xFFEC4899),
+            widget.gradientStart ?? AppColors.primary,
+            widget.gradientEnd ?? const Color(0xFF3B9AFF),
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: (widget.gradientStart ?? const Color(0xFF8B5CF6)).withOpacity(0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: (widget.gradientStart ?? AppColors.primary).withOpacity(0.4),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),

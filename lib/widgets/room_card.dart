@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:roomix/models/room_model.dart';
 import 'package:roomix/constants/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -22,21 +22,7 @@ class RoomCard extends StatelessWidget {
       onTap: () => SmoothNavigation.push(context, RoomDetailScreen(room: room)),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.border,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: AppColors.elevatedCardDecoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -268,7 +254,8 @@ class RoomCard extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        elevation: 0,
+                        elevation: 3,
+                        shadowColor: AppColors.primary.withOpacity(0.35),
                       ),
                     ),
                   ),

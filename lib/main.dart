@@ -19,6 +19,7 @@ import 'package:roomix/services/platform_service.dart';
 import 'package:roomix/constants/app_colors.dart';
 import 'package:roomix/providers/market_provider.dart';
 import 'package:roomix/providers/lost_found_provider.dart';
+import 'package:roomix/providers/chat_provider.dart';
 import 'package:roomix/screens/auth/auth_gate.dart';
 
 void main() async {
@@ -47,7 +48,7 @@ void main() async {
     try {
       SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: AppColors.background,
         systemNavigationBarIconBrightness: Brightness.dark,
       ));
@@ -78,6 +79,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => RoommateProvider()),
         ChangeNotifierProvider(create: (_) => MarketProvider()),
         ChangeNotifierProvider(create: (_) => LostFoundProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: const RoomixApp(),
     ),
@@ -100,48 +102,49 @@ class RoomixApp extends StatelessWidget {
     );
   }
 
-  /// Light Theme - Professional Design
+  /// Light Theme — Professional Design (60% Blue / 30% White / 10% Orange)
   static ThemeData _buildLightTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      // fontFamily: 'Manrope',
       
-      // Color Scheme
+      // Color Scheme — 60/30/10 rule
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         onPrimary: Colors.white,
-        secondary: AppColors.secondary,
+        secondary: AppColors.accent,
         onSecondary: Colors.white,
+        tertiary: AppColors.secondary,
         surface: AppColors.surface,
         onSurface: AppColors.textDark,
-        background: AppColors.background,
-        onBackground: AppColors.textDark,
         error: AppColors.error,
         onError: Colors.white,
       ),
       
-      // Scaffold Background
-      scaffoldBackgroundColor: AppColors.background,
+      // Scaffold — soft blue-tinted background
+      scaffoldBackgroundColor: AppColors.scaffoldBackground,
       
-      // App Bar Theme
+      // App Bar — Blue gradient themed
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: true,
-        iconTheme: IconThemeData(color: AppColors.primary),
+        scrolledUnderElevation: 2,
+        iconTheme: IconThemeData(color: Colors.white),
+        actionsIconTheme: IconThemeData(color: Colors.white),
         titleTextStyle: TextStyle(
           fontFamily: 'Manrope',
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: AppColors.textDark,
+          color: Colors.white,
         ),
       ),
       
-      // Card Theme
-      cardTheme: const CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
+      // Card Theme — elevated with shadow
+      cardTheme: CardThemeData(
+        elevation: 3,
+        shadowColor: AppColors.primary.withOpacity(0.12),
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
         color: AppColors.surface,
@@ -179,15 +182,16 @@ class RoomixApp extends StatelessWidget {
         ),
       ),
       
-      // Elevated Button Theme
+      // Elevated Button — gradient blue with shadow
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          elevation: 0,
+          elevation: 3,
+          shadowColor: AppColors.primary.withOpacity(0.4),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           textStyle: const TextStyle(
             fontFamily: 'Manrope',
@@ -216,7 +220,7 @@ class RoomixApp extends StatelessWidget {
           side: const BorderSide(color: AppColors.primary, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           textStyle: const TextStyle(
             fontFamily: 'Manrope',
@@ -226,139 +230,77 @@ class RoomixApp extends StatelessWidget {
         ),
       ),
       
-      // Text Theme
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textDark,
-        ),
-        displayMedium: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textDark,
-        ),
-        displaySmall: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textDark,
-        ),
-        headlineLarge: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textDark,
-        ),
-        headlineMedium: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textDark,
-        ),
-        headlineSmall: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textDark,
-        ),
-        titleLarge: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textDark,
-        ),
-        titleMedium: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textDark,
-        ),
-        titleSmall: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textDark,
-        ),
-        bodyLarge: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textDark,
-        ),
-        bodyMedium: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textDark,
-        ),
-        bodySmall: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textGray,
-        ),
-        labelLarge: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primary,
-        ),
-        labelMedium: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textGray,
-        ),
-        labelSmall: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textGray,
-          letterSpacing: 0.5,
+      // Floating Action Button — Orange accent
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: AppColors.accent,
+        foregroundColor: Colors.white,
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
       
-      // Bottom Navigation Bar Theme
+      // Text Theme
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(fontFamily: 'Manrope', fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textDark),
+        displayMedium: TextStyle(fontFamily: 'Manrope', fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textDark),
+        displaySmall: TextStyle(fontFamily: 'Manrope', fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textDark),
+        headlineLarge: TextStyle(fontFamily: 'Manrope', fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textDark),
+        headlineMedium: TextStyle(fontFamily: 'Manrope', fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textDark),
+        headlineSmall: TextStyle(fontFamily: 'Manrope', fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textDark),
+        titleLarge: TextStyle(fontFamily: 'Manrope', fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textDark),
+        titleMedium: TextStyle(fontFamily: 'Manrope', fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textDark),
+        titleSmall: TextStyle(fontFamily: 'Manrope', fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+        bodyLarge: TextStyle(fontFamily: 'Manrope', fontSize: 16, fontWeight: FontWeight.w400, color: AppColors.textDark),
+        bodyMedium: TextStyle(fontFamily: 'Manrope', fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textDark),
+        bodySmall: TextStyle(fontFamily: 'Manrope', fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textGray),
+        labelLarge: TextStyle(fontFamily: 'Manrope', fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+        labelMedium: TextStyle(fontFamily: 'Manrope', fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textGray),
+        labelSmall: TextStyle(fontFamily: 'Manrope', fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textGray, letterSpacing: 0.5),
+      ),
+      
+      // Bottom Navigation Bar — blue themed
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textGray,
         type: BottomNavigationBarType.fixed,
-        elevation: 8,
-        selectedLabelStyle: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-        unselectedLabelStyle: TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
+        elevation: 12,
+        selectedLabelStyle: TextStyle(fontFamily: 'Manrope', fontSize: 10, fontWeight: FontWeight.bold),
+        unselectedLabelStyle: TextStyle(fontFamily: 'Manrope', fontSize: 10, fontWeight: FontWeight.w500),
+      ),
+      
+      // Tab Bar
+      tabBarTheme: const TabBarThemeData(
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: Colors.white,
+        labelStyle: TextStyle(fontFamily: 'Manrope', fontWeight: FontWeight.bold, fontSize: 14),
+        unselectedLabelStyle: TextStyle(fontFamily: 'Manrope', fontWeight: FontWeight.w500, fontSize: 14),
       ),
       
       // Divider Theme
-      dividerTheme: DividerThemeData(
-        color: AppColors.border,
-        thickness: 1,
-        space: 1,
-      ),
+      dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1, space: 1),
       
       // Chip Theme
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.background,
-        selectedColor: AppColors.primary.withOpacity(0.1),
-        labelStyle: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        backgroundColor: AppColors.primarySurface,
+        selectedColor: AppColors.primary.withOpacity(0.15),
+        labelStyle: const TextStyle(fontFamily: 'Manrope', fontSize: 12, fontWeight: FontWeight.w500),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        side: BorderSide(color: AppColors.primary.withOpacity(0.15)),
+      ),
+      
+      // Dialog
+      dialogTheme: DialogThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 8,
+      ),
+
+      // SnackBar
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

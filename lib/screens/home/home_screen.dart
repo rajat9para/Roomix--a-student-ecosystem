@@ -27,6 +27,8 @@ import 'package:roomix/screens/profile/account_settings_screen.dart';
 import 'package:roomix/screens/notifications/notifications_screen.dart';
 import 'package:roomix/screens/roommate_finder/profile_creation_screen.dart';
 import 'package:roomix/services/telegram_service.dart';
+import 'package:roomix/screens/messages/messages_screen.dart';
+import 'package:roomix/providers/chat_provider.dart';
 import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
@@ -355,8 +357,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildScreenForIndex(int index) {
     switch (index) {
       case 1:
-        return const BookmarksScreen();
+        return const MessagesScreen();
       case 2:
+        return const BookmarksScreen();
+      case 3:
         return const ProfileScreen();
       default:
         return _buildHomeContent(
@@ -434,11 +438,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        gradient: AppColors.headerGradient,
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withOpacity(0.3),
-            blurRadius: 10,
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -447,7 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           // Profile Avatar
           GestureDetector(
-            onTap: () => _onItemTapped(2),
+            onTap: () => _onItemTapped(3),
             child: Container(
               width: 44,
               height: 44,
@@ -662,15 +666,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           _buildStartupChecklistItem(
             checked: _startupTelegramChecked,
-            text: 'Install Telegram',
-            subtitle: 'Required for messaging',
-            icon: Icons.send_rounded,
+            text: 'Set Up Chat Profile',
+            subtitle: 'Ready for in-app messaging',
+            icon: Icons.chat_rounded,
             onChanged: (value) => _setStartupTaskValue(
               task: 'telegram',
               value: value,
             ),
-            actionLabel: 'Install',
-            onAction: () => TelegramService.openTelegramInstallPage(),
+            actionLabel: 'Done',
+            onAction: () {
+              _setStartupTaskValue(task: 'telegram', value: true);
+            },
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -828,7 +834,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSearchSection() {
     return Container(
       padding: const EdgeInsets.all(16),
-      color: Colors.white,
+      decoration: const BoxDecoration(
+        gradient: AppColors.sectionGradient,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1057,7 +1065,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      color: Colors.white,
+      color: AppColors.primarySurface,
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -2309,51 +2317,37 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 18),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-      color: AppColors.primary,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+      decoration: BoxDecoration(
+        gradient: AppColors.headerGradient,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Container(
-                padding: const EdgeInsets.only(left: 10),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    left: BorderSide(color: Colors.white70, width: 1.2),
-                  ),
-                ),
-                child: const Text(
-                  'Made with \u2764\uFE0F by rajat',
-                  textAlign: TextAlign.left,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    fontStyle: FontStyle.italic,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
+          const Text(
+            'Made with \u2764\uFE0F by TechBuilders',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 14),
-              child: const Text(
-                '6th Semester GEHU',
-                textAlign: TextAlign.left,
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
+          const SizedBox(height: 6),
+          Text(
+            '© ${DateTime.now().year} Roomix — Student Ecosystem',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -2362,6 +2356,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBottomNavBar() {
+    final chatProvider = Provider.of<ChatProvider>(context);
+    final unreadCount = chatProvider.totalUnreadCount;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -2380,8 +2377,9 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(Icons.home_rounded, 'Home', 0),
-              _buildNavItem(Icons.bookmark_outline, 'Saved', 1),
-              _buildNavItem(Icons.person_outline, 'Profile', 2),
+              _buildNavItem(Icons.chat_bubble_outline, 'Chats', 1, badgeCount: unreadCount),
+              _buildNavItem(Icons.bookmark_outline, 'Saved', 2),
+              _buildNavItem(Icons.person_outline, 'Profile', 3),
             ],
           ),
         ),
@@ -2389,17 +2387,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildNavItem(IconData icon, String label, int index, {int badgeCount = 0}) {
     final isSelected = _selectedIndex == index;
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: isSelected ? AppColors.primary : AppColors.textGray,
-            size: 24,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? AppColors.primary : AppColors.textGray,
+                size: 24,
+              ),
+              if (badgeCount > 0)
+                Positioned(
+                  right: -8,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(

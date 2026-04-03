@@ -63,6 +63,15 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
+    // Student email domain validation
+    if (_selectedRole == 'student') {
+      final domain = email.split('@').last.toLowerCase();
+      if (!domain.endsWith('.ac.in')) {
+        _showErrorSnackbar('Students must use an institutional email (e.g., name@college.ac.in)');
+        return;
+      }
+    }
+
     // Basic email validation
     if (!email.contains('@') || !email.contains('.')) {
       _showErrorSnackbar('Please enter a valid email address');
@@ -300,24 +309,28 @@ class _LoginScreenState extends State<LoginScreen>
     final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 40),
-                _buildLogo(),
-                const SizedBox(height: 32),
-                _buildHeader(),
-                const SizedBox(height: 32),
-                _buildRoleSelector(),
-                const SizedBox(height: 32),
-                _buildForm(authProvider),
-              ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppColors.backgroundGradient,
+        ),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 40),
+                  _buildLogo(),
+                  const SizedBox(height: 32),
+                  _buildHeader(),
+                  const SizedBox(height: 32),
+                  _buildRoleSelector(),
+                  const SizedBox(height: 32),
+                  _buildForm(authProvider),
+                ],
+              ),
             ),
           ),
         ),

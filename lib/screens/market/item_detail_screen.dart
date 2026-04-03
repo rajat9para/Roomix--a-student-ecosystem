@@ -4,7 +4,7 @@ import 'package:roomix/constants/app_colors.dart';
 import 'package:roomix/widgets/bookmark_button.dart';
 import 'package:roomix/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:roomix/services/telegram_service.dart';
+import 'package:roomix/screens/messages/chat_detail_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -33,78 +33,64 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     super.dispose();
   }
 
-  Future<Map<String, String?>> _resolveSellerTelegramTarget() async {
-    String? phone;
-
-    final sellerId = widget.item.sellerId?.trim();
-    if (sellerId != null && sellerId.isNotEmpty) {
-      try {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(sellerId)
-            .get(const GetOptions(source: Source.serverAndCache));
-        if (doc.exists) {
-          final data = doc.data();
-          phone = TelegramService.extractPhoneFromUserData(data);
-        }
-      } catch (e) {
-        debugPrint('ItemDetail: seller profile lookup failed: $e');
-      }
-    }
-
-    // Backward compatibility for older listings.
-    final legacyContact = widget.item.sellerContact.trim();
-    if ((phone == null || phone.isEmpty) && legacyContact.isNotEmpty) {
-      if (TelegramService.isValidPhone(legacyContact)) {
-        phone = legacyContact;
-      }
-    }
-
-    return {'phone': phone};
-  }
-
-  Future<void> _contactViaTelegram(BuildContext context) async {
+  /// Navigate to in-app chat with the seller
+  Future<void> _contactSeller(BuildContext context) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final buyerName = auth.currentUser?.name.trim();
-    final target = await _resolveSellerTelegramTarget();
-    final sellerPhone = target['phone'];
-
-    if (sellerPhone == null || sellerPhone.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Seller Telegram contact is unavailable.'),
-          ),
-        );
-      }
+    final currentUser = auth.currentUser;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to message the seller.')),
+      );
       return;
     }
 
-    final itemLabel = widget.item.allImages.isNotEmpty
-        ? 'Photo ${_currentImageIndex + 1}'
-        : widget.item.title;
-    final intro = buyerName != null && buyerName.isNotEmpty
-        ? 'Hi, I am $buyerName.'
-        : 'Hi,';
-    final message =
-        '$intro I am interested in this item ($itemLabel). Could you please provide more details about the product?';
+    final sellerId = widget.item.sellerId?.trim();
+    if (sellerId == null || sellerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Seller contact is unavailable for this listing.')),
+      );
+      return;
+    }
 
-    final launched = await TelegramService.openTelegramSmart(
-      context: context,
-      phone: sellerPhone,
-      selfPhone: auth.currentUser?.telegramPhone,
-      message: message,
-    );
+    // Don't let user message themselves
+    if (sellerId == currentUser.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This is your own listing.')),
+      );
+      return;
+    }
+
+    // Resolve seller name and photo
+    String sellerName = widget.item.sellerName;
+    String? sellerPhoto;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(sellerId)
+          .get();
+      if (doc.exists) {
+        sellerName = doc.data()?['name'] as String? ?? sellerName;
+        sellerPhoto = doc.data()?['profilePicture'] as String?;
+      }
+    } catch (_) {}
+
+    final buyerName = currentUser.name.trim();
+    final intro = buyerName.isNotEmpty ? 'Hi, I\'m $buyerName.' : 'Hi,';
+    final message =
+        '$intro I\'m interested in buying \'${widget.item.title}\' (₹${widget.item.price.toStringAsFixed(0)}). Is it still available?';
 
     if (!mounted) return;
-
-    if (!launched) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open Telegram. Please install the app.'),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatDetailScreen(
+          userId: sellerId,
+          userName: sellerName,
+          userPhoto: sellerPhoto,
+          initialMessage: message,
         ),
-      );
-    }
+      ),
+    );
   }
 
   @override
@@ -114,10 +100,24 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Item Details'),
+        title: const Text('Item Details', style: TextStyle(color: Colors.white)),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppColors.textDark,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+          ),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -237,9 +237,9 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.border),
+                                color: AppColors.primarySurface,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: AppColors.primary.withOpacity(0.15)),
                               ),
                               child: Row(
                                 children: [
@@ -298,14 +298,14 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 ),
               ),
 
-              // Bottom — Telegram button
+              // Bottom — Message Seller button
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.primarySurface,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: AppColors.primary.withOpacity(0.08),
                       blurRadius: 10,
                       offset: const Offset(0, -5),
                     ),
@@ -314,19 +314,19 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: item.sold
+                    onPressed: (item.sold || item.sellerId == null || item.sellerId!.trim().isEmpty)
                         ? null
-                        : () => _contactViaTelegram(context),
+                        : () => _contactSeller(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0088CC),
+                      backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    icon: const Icon(Icons.send_rounded, color: Colors.white),
+                    icon: const Icon(Icons.chat_rounded, color: Colors.white),
                     label: Text(
-                      item.sold ? 'Item Sold' : 'Message on Telegram',
+                      item.sold ? 'Item Sold' : 'Message Seller',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

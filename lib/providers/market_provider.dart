@@ -89,6 +89,8 @@ class MarketProvider with ChangeNotifier {
 
   void _applyFilters() {
     _filteredItems = _items.where((item) {
+      // Auto-hide sold items from general listing
+      if (item.sold) return false;
       final matchesSearch = item.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           (item.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
       final matchesCategory = _selectedCategory == 'All' || item.category == _selectedCategory;

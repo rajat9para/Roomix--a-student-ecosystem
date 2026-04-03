@@ -416,7 +416,7 @@ class StatusBadge extends StatelessWidget {
   }
 }
 
-/// Common app bar widget
+/// Common app bar widget — Blue header with orange back button
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool showBackButton;
@@ -437,8 +437,17 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(top: 8),
-      color: AppColors.background,
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      decoration: const BoxDecoration(
+        gradient: AppColors.headerGradient,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x200A66C2),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           if (showBackButton)
@@ -447,11 +456,17 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.accent,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.accent.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.arrow_back, color: AppColors.textDark, size: 20),
+                child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
               ),
             )
           else if (leading != null)
@@ -463,7 +478,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: Text(
               title,
               style: const TextStyle(
-                color: AppColors.textDark,
+                color: Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),

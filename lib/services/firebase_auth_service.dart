@@ -329,33 +329,33 @@ class FirebaseAuthService {
         'isNewUser': userData == null,
       };
     } on FirebaseAuthException catch (e) {
-      if (e.code == '10') {
+      if (e.code == '10' || e.code == '12500') {
         throw Exception(
           'Google Sign-In configuration error. '
-          'Please ensure SHA-1 fingerprint is added in Firebase Console. '
-          'Error code: 10',
+          'Please contact the admin to update SHA-1 fingerprint in Firebase Console.',
         );
       }
       throw Exception(_getErrorMessage(e.code));
     } catch (e) {
       final errorMsg = e.toString().toLowerCase();
-      if (errorMsg.contains('network_error')) {
+      if (errorMsg.contains('network_error') || errorMsg.contains('networkerror')) {
         throw Exception(
           'Network error. Please check your internet connection and try again.',
         );
       }
-      if (errorMsg.contains('sign_in_failed')) {
+      if (errorMsg.contains('sign_in_failed') ||
+          errorMsg.contains('apiexception: 10') ||
+          errorMsg.contains('error code: 10') ||
+          errorMsg.contains('12500') ||
+          errorMsg.contains('12501')) {
         throw Exception(
-          'Google Sign-In failed. Please ensure:\n'
-          '1. SHA-1 fingerprint is added in Firebase Console\n'
-          '2. google-services.json is up to date\n'
-          '3. Package name matches Firebase configuration',
+          'Google Sign-In is temporarily unavailable. Please use email/password to sign in.',
         );
       }
       if (errorMsg.contains('cancel') || errorMsg.contains('aborted_by_user')) {
         return {'success': false, 'cancelled': true};
       }
-      throw Exception('Google Sign-In failed: ${e.toString()}');
+      throw Exception('Google Sign-In failed. Please try email/password sign in instead.');
     } finally {
       _googleSignInInProgress = false;
     }

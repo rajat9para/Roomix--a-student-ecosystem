@@ -4,7 +4,8 @@ import 'package:roomix/constants/app_colors.dart';
 import 'package:roomix/screens/auth/auth_gate.dart';
 import 'package:roomix/providers/auth_provider.dart';
 import 'package:roomix/providers/owner_listings_provider.dart';
-import 'package:roomix/services/telegram_service.dart';
+import 'package:roomix/providers/chat_provider.dart';
+import 'package:roomix/screens/messages/messages_screen.dart';
 import 'package:roomix/screens/owner/add_mess_screen.dart';
 import 'package:roomix/screens/owner/add_room_screen.dart';
 import 'package:roomix/screens/owner/owner_profile_screen.dart';
@@ -120,38 +121,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
       _actionBox(Icons.star_outline, 'Reviews', 'View ratings', () {
         _showReviews(context);
       }),
-      _actionBox(Icons.send, 'Telegram', 'Open Telegram', () async {
+      _actionBox(Icons.chat_rounded, 'Chats', 'View messages', () {
+        // Initialize chat provider for owner
         final auth = context.read<AuthProvider>();
-        final linkedPhone = auth.currentUser?.telegramPhone?.trim();
-
-        if (linkedPhone != null &&
-            linkedPhone.isNotEmpty &&
-            TelegramService.isValidPhone(linkedPhone)) {
-          // Just open the Telegram app on the device
-          final opened = await TelegramService.openTelegramApp();
-          if (!opened && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Telegram is not installed on this device.'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        } else {
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Add a valid Telegram number in Account Settings first.',
-              ),
-              backgroundColor: AppColors.warning,
-            ),
-          );
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AccountSettingsScreen()),
-          );
+        final user = auth.currentUser;
+        if (user != null) {
+          context.read<ChatProvider>().initialize(user.id, user.name);
         }
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MessagesScreen()),
+        );
       }),
       _actionBox(Icons.settings_outlined, 'Settings', 'Account settings', () {
         Navigator.push(

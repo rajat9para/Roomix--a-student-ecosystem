@@ -1,81 +1,112 @@
 import 'package:flutter/material.dart';
 
-/// Professional Theme Colors - Based on Stitch Design System
-/// Primary: #0a66c2 (Professional Blue)
-/// Background Light: #f5f7f8
-/// Background Dark: #101922
+/// Professional Theme Colors — 60/30/10 Rule
+/// Primary Blue (60%): Headers, buttons, highlights, active states
+/// White/Light (30%): Backgrounds, cards, clean spacing
+/// Accent Orange (10%): CTA buttons, back buttons, alerts, highlights
 class AppColors {
-  // Primary Colors - Professional Blue
-  static const Color primary = Color(0xFF0a66c2);
-  static const Color primaryColor = Color(0xFF0a66c2);
-  static const Color primaryDark = Color(0xFF0850a0);
-  static const Color primaryLight = Color(0xFFE8F3FC);
-  static const Color primaryAccent = Color(0xFF0e63be); // Added for utility screens
-  
-  // Secondary Colors
-  static const Color secondary = Color(0xFF10B981); // Success Green
-  static const Color accent = Color(0xFFF59E0B); // Warning Orange
-  static const Color tertiary = Color(0xFFEC4899); // Pink accent
-  
-  // Text Colors
+  // ── Primary (60%) — Professional Blue ────────────────────────
+  static const Color primary = Color(0xFF0A66C2);
+  static const Color primaryColor = Color(0xFF0A66C2);
+  static const Color primaryDark = Color(0xFF084E96);
+  static const Color primaryLight = Color(0xFFE3F0FC);
+  static const Color primaryAccent = Color(0xFF0E63BE);
+  static const Color primarySurface = Color(0xFFF0F6FE); // subtle blue tint for surfaces
+
+  // ── Accent (10%) — CTA Orange ────────────────────────────────
+  static const Color accent = Color(0xFFFF6B35);
+  static const Color accentLight = Color(0xFFFFF0E8);
+  static const Color accentDark = Color(0xFFE55A2B);
+
+  // ── Secondary Colors ─────────────────────────────────────────
+  static const Color secondary = Color(0xFF10B981);
+  static const Color tertiary = Color(0xFFEC4899);
+
+  // ── Text Colors ──────────────────────────────────────────────
   static const Color textDark = Color(0xFF111418);
   static const Color textLight = Color(0xFFFFFFFF);
-  static const Color textGray = Color(0xFF60758a);
+  static const Color textGray = Color(0xFF60758A);
   static const Color textSubtle = Color(0xFF9CA3AF);
   static const Color textPrimary = Color(0xFF111418);
-  
-  // Background Colors - Light Theme (Default)
-  static const Color background = Color(0xFFf5f7f8);
-  static const Color backgroundLight = Color(0xFFf5f7f8);
+
+  // ── Background Colors — Light Theme (30% white) ──────────────
+  static const Color background = Color(0xFFF0F4FA); // soft blue-tinted background
+  static const Color backgroundLight = Color(0xFFF5F7F8);
   static const Color backgroundDark = Color(0xFF101922);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color cardBackground = Color(0xFFFFFFFF);
-  static const Color scaffoldBackground = Color(0xFFf5f7f8);
-  
-  // Dark Mode Backgrounds
+  static const Color scaffoldBackground = Color(0xFFF0F4FA);
+  static const Color surfaceBlue = Color(0xFFE8F0FE); // blue-tinted surface
+
+  // Dark Mode Backgrounds (unused — light only)
   static const Color darkBackground = Color(0xFF101922);
-  static const Color darkSurface = Color(0xFF1c2a38);
-  
-  // Status Colors
+  static const Color darkSurface = Color(0xFF1C2A38);
+
+  // ── Status Colors ────────────────────────────────────────────
   static const Color success = Color(0xFF10B981);
   static const Color warning = Color(0xFFF59E0B);
   static const Color error = Color(0xFFEF4444);
   static const Color errorRed = Color(0xFFEF4444);
-  static const Color info = Color(0xFF0a66c2);
-  
-  // Border Colors
-  static const Color border = Color(0xFFdbe0e6);
+  static const Color info = Color(0xFF0A66C2);
+
+  // ── Border Colors ────────────────────────────────────────────
+  static const Color border = Color(0xFFD2DCEA);
   static const Color borderLight = Color(0xFFE5E7EB);
   static const Color shadow = Color(0x1A000000);
-  
-  // Role Colors
-  static const Color student = Color(0xFF0a66c2);
+
+  // ── Role Colors ──────────────────────────────────────────────
+  static const Color student = Color(0xFF0A66C2);
   static const Color owner = Color(0xFF10B981);
   static const Color admin = Color(0xFFF59E0B);
 
-  // Rating Color
+  // ── Rating ───────────────────────────────────────────────────
   static const Color starColor = Color(0xFFFFB800);
 
-  // Gradient Presets
+  // ── Gradient Presets ─────────────────────────────────────────
+
+  /// Main header / app bar gradient — deep blue to medium blue
+  static const LinearGradient headerGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF0A66C2), Color(0xFF1A8CFF)],
+  );
+
+  /// Primary gradient blue → lighter blue (buttons, highlights)
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0a66c2), Color(0xFF0850a0)],
+    colors: [Color(0xFF0A66C2), Color(0xFF3B9AFF)],
   );
 
+  /// Accent gradient for CTA buttons — orange tones
+  static const LinearGradient accentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFF6B35), Color(0xFFFF8F5E)],
+  );
+
+  /// Card gradient — very subtle blue tint
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Colors.white, Color(0xFFf8fafc)],
+    colors: [Colors.white, Color(0xFFF5F9FF)],
   );
 
+  /// Background gradient — soft blue tint
   static const LinearGradient backgroundGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFE8F0FE), Color(0xFFF0F4FA)],
+  );
+
+  /// Section gradient — slightly stronger blue tint
+  static const LinearGradient sectionGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFf5f7f8), Color(0xFFe8ecf1)],
+    colors: [Color(0xFFF0F6FE), Color(0xFFE3EFFC)],
   );
 
-  // Legacy gradients for backward compatibility (Splash Screen, etc.)
+  // Legacy gradients for backward compat
   static const LinearGradient premiumGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -89,25 +120,41 @@ class AppColors {
     colors: [Color(0xFFF59E0B), Color(0xFFEC4899)],
   );
 
-  static const LinearGradient accentGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF10B981), Color(0xFF06B6D4)],
-  );
-
-  // Card Decoration - Light Theme
+  // ── Card Decoration ──────────────────────────────────────────
   static BoxDecoration get cardDecoration => BoxDecoration(
     color: Colors.white,
     borderRadius: BorderRadius.circular(16),
     border: Border.all(
-      color: const Color(0xFF0a66c2).withOpacity(0.08),
+      color: const Color(0xFF0A66C2).withOpacity(0.10),
       width: 1,
     ),
     boxShadow: [
       BoxShadow(
+        color: const Color(0xFF0A66C2).withOpacity(0.08),
+        blurRadius: 16,
+        offset: const Offset(0, 6),
+      ),
+    ],
+  );
+
+  /// Elevated card with stronger shadow
+  static BoxDecoration get elevatedCardDecoration => BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(18),
+    border: Border.all(
+      color: const Color(0xFF0A66C2).withOpacity(0.12),
+      width: 1,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: const Color(0xFF0A66C2).withOpacity(0.12),
+        blurRadius: 20,
+        offset: const Offset(0, 8),
+      ),
+      BoxShadow(
         color: Colors.black.withOpacity(0.04),
-        blurRadius: 12,
-        offset: const Offset(0, 4),
+        blurRadius: 6,
+        offset: const Offset(0, 2),
       ),
     ],
   );
@@ -117,27 +164,40 @@ class AppColors {
     color: Colors.white,
     borderRadius: BorderRadius.circular(12),
     border: Border.all(
-      color: const Color(0xFFdbe0e6),
+      color: const Color(0xFFD2DCEA),
       width: 1.5,
     ),
   );
 
   // Primary Button Decoration
   static BoxDecoration get primaryButtonDecoration => BoxDecoration(
-    color: const Color(0xFF0a66c2),
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(14),
+    gradient: primaryGradient,
     boxShadow: [
       BoxShadow(
-        color: const Color(0xFF0a66c2).withOpacity(0.3),
-        blurRadius: 12,
-        offset: const Offset(0, 4),
+        color: const Color(0xFF0A66C2).withOpacity(0.35),
+        blurRadius: 14,
+        offset: const Offset(0, 6),
+      ),
+    ],
+  );
+
+  /// Accent CTA Button Decoration
+  static BoxDecoration get accentButtonDecoration => BoxDecoration(
+    borderRadius: BorderRadius.circular(14),
+    gradient: accentGradient,
+    boxShadow: [
+      BoxShadow(
+        color: const Color(0xFFFF6B35).withOpacity(0.35),
+        blurRadius: 14,
+        offset: const Offset(0, 6),
       ),
     ],
   );
 
   // Glass Effect for Dark Mode
   static BoxDecoration get glassDarkDecoration => BoxDecoration(
-    color: const Color(0xFF1c2a38),
+    color: const Color(0xFF1C2A38),
     borderRadius: BorderRadius.circular(16),
     border: Border.all(
       color: Colors.white.withOpacity(0.1),

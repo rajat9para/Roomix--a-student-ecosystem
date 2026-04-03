@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:roomix/constants/app_colors.dart';
 import 'package:roomix/providers/auth_provider.dart';
+import 'package:roomix/providers/chat_provider.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String userId;
   final String userName;
   final String? userPhoto;
+  final String? initialMessage;
 
   const ChatDetailScreen({
     super.key,
     required this.userId,
     required this.userName,
     this.userPhoto,
+    this.initialMessage,
   });
 
   @override
@@ -23,7 +27,26 @@ class ChatDetailScreen extends StatefulWidget {
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isLoading = false;
+  bool _isSending = false;
+  bool _initialMessageSent = false;
+  bool _firstBuild = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chatProvider = context.read<ChatProvider>();
+      chatProvider.markConversationAsRead(widget.userId);
+
+      // Send initial inquiry message if provided and no prior conversation
+      if (widget.initialMessage != null &&
+          widget.initialMessage!.isNotEmpty &&
+          !_initialMessageSent) {
+        _initialMessageSent = true;
+        _sendAutoInquiry(widget.initialMessage!);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -32,198 +55,137 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     super.dispose();
   }
 
+  Future<void> _sendAutoInquiry(String message) async {
+    final chatProvider = context.read<ChatProvider>();
+    // Only send if no prior conversation exists
+    final exists = await chatProvider.hasExistingConversation(widget.userId);
+    if (!exists) {
+      try {
+        await chatProvider.sendMessage(
+          receiverId: widget.userId,
+          message: message,
+        );
+      } catch (e) {
+        debugPrint('Error sending auto inquiry: $e');
+      }
+    }
+  }
+
   Future<void> _sendMessage() async {
     final message = _messageController.text.trim();
-    if (message.isEmpty) return;
+    if (message.isEmpty || _isSending) return;
 
-    final authProvider = context.read<AuthProvider>();
-    final currentUserId = authProvider.currentUser?.id;
-    if (currentUserId == null) return;
-
-    setState(() => _isLoading = true);
+    setState(() => _isSending = true);
+    _messageController.clear();
 
     try {
-      await FirebaseFirestore.instance.collection('chatmessages').add({
-        'senderid': currentUserId,
-        'receiverid': widget.userId,
-        'message': message,
-        'read': false,
-        'timestamp': Timestamp.now(),
-      });
-
-      _messageController.clear();
+      await context.read<ChatProvider>().sendMessage(
+            receiverId: widget.userId,
+            message: message,
+          );
       _scrollToBottom();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error sending message: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final currentUserId = authProvider.currentUser?.id;
+    final chatProvider = context.read<ChatProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: AppColors.textDark),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.background,
-                  backgroundImage: widget.userPhoto != null ? NetworkImage(widget.userPhoto!) : null,
-                  child: widget.userPhoto == null
-                      ? Text(
-                          widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        )
-                      : null,
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: AppColors.success,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.userName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const Text(
-                    'Online',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              // Schedule visit
-            },
-            icon: const Icon(Icons.calendar_today, size: 16),
-            label: const Text('Schedule Visit'),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: AppColors.scaffoldBackground,
+      appBar: _buildAppBar(),
       body: Column(
         children: [
-          // Messages List
+          // Messages
           Expanded(
             child: currentUserId == null
                 ? const Center(child: Text('Please sign in'))
-                : StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('chatmessages')
-                        .orderBy('timestamp', descending: false)
-                        .snapshots(),
+                : StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: chatProvider.getChatStream(widget.userId),
                     builder: (context, snapshot) {
                       if (snapshot.hasError) {
                         return Center(
-                          child: Text('Error: ${snapshot.error}'),
-                        );
-                      }
-
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline,
+                                  size: 48,
+                                  color: AppColors.error.withOpacity(0.5)),
+                              const SizedBox(height: 12),
+                              Text('Something went wrong',
+                                  style:
+                                      TextStyle(color: AppColors.textGray)),
+                            ],
                           ),
                         );
                       }
 
-                      final allMessages = snapshot.data?.docs ?? [];
-                      
-                      // Filter messages for this conversation
-                      final messages = allMessages.where((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        final sender = data['senderid'] as String;
-                        final receiver = data['receiverid'] as String;
-                        return (sender == currentUserId && receiver == widget.userId) ||
-                               (sender == widget.userId && receiver == currentUserId);
-                      }).toList();
-
-                      // Mark messages as read
-                      for (var msg in messages) {
-                        final data = msg.data() as Map<String, dynamic>;
-                        if (data['receiverid'] == currentUserId && data['read'] == false) {
-                          msg.reference.update({'read': true});
-                        }
+                      if (snapshot.connectionState ==
+                              ConnectionState.waiting &&
+                          _firstBuild) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.primary),
+                          ),
+                        );
                       }
+
+                      final messages = snapshot.data ?? [];
+                      _firstBuild = false;
+
+                      // Mark new incoming messages as read
+                      _markIncomingAsRead(messages, currentUserId);
 
                       if (messages.isEmpty) {
                         return _buildEmptyChat();
                       }
 
-                      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+                      // Auto-scroll on new messages
+                      WidgetsBinding.instance
+                          .addPostFrameCallback((_) => _scrollToBottom());
 
                       return ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
                         itemCount: messages.length,
                         itemBuilder: (context, index) {
-                          final message = messages[index].data() as Map<String, dynamic>;
+                          final message = messages[index];
                           final isMe = message['senderid'] == currentUserId;
-                          final showDate = index == 0 || _shouldShowDate(messages, index);
+                          final showDate =
+                              _shouldShowDate(messages, index);
 
                           return Column(
                             children: [
-                              if (showDate) _buildDateDivider(message['timestamp'] as Timestamp?),
+                              if (showDate)
+                                _buildDateDivider(
+                                    message['timestamp'] as Timestamp?),
                               _buildMessageBubble(message, isMe),
                             ],
                           );
@@ -233,93 +195,189 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ),
           ),
 
-          // Message Input
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
+          // Input bar
+          _buildInputBar(),
+        ],
+      ),
+    );
+  }
+
+  /// Mark incoming unread messages as read efficiently
+  void _markIncomingAsRead(
+      List<Map<String, dynamic>> messages, String? currentUserId) {
+    if (currentUserId == null) return;
+
+    final unreadIds = <String>[];
+    for (var msg in messages) {
+      if (msg['receiverid'] == currentUserId && msg['read'] == false) {
+        unreadIds.add(msg['id'] as String);
+      }
+    }
+
+    if (unreadIds.isEmpty) return;
+
+    // Batch update for performance
+    final batch = FirebaseFirestore.instance.batch();
+    for (var id in unreadIds) {
+      batch.update(
+        FirebaseFirestore.instance.collection('chatmessages').doc(id),
+        {'read': true},
+      );
+    }
+    batch.commit().catchError((e) {
+      debugPrint('Error marking messages as read: $e');
+    });
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+      ),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      leadingWidth: 40,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 4),
+        child: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_rounded,
+              color: Colors.white, size: 24),
+        ),
+      ),
+      title: Row(
+        children: [
+          // Profile avatar with cached image
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: Colors.white.withOpacity(0.2),
+            backgroundImage:
+                widget.userPhoto != null && widget.userPhoto!.isNotEmpty
+                    ? CachedNetworkImageProvider(widget.userPhoto!)
+                    : null,
+            child: widget.userPhoto == null || widget.userPhoto!.isEmpty
+                ? Text(
+                    widget.userName.isNotEmpty
+                        ? widget.userName[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.userName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const Text(
+                  'tap for info',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ],
             ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.add, color: AppColors.textGray),
-                      onPressed: () {
-                        // Show attachment options
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.background,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: TextField(
-                        controller: _messageController,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(
-                          hintText: 'Type a message...',
-                          hintStyle: TextStyle(
-                            color: AppColors.textGray.withOpacity(0.6),
-                            fontSize: 14,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        ),
-                        onSubmitted: (_) => _sendMessage(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _isLoading ? null : _sendMessage,
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Icon(Icons.send, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInputBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            // Text Field
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.scaffoldBackground,
+                  borderRadius: BorderRadius.circular(24),
+                  border:
+                      Border.all(color: AppColors.primary.withOpacity(0.1)),
+                ),
+                child: TextField(
+                  controller: _messageController,
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLines: 4,
+                  minLines: 1,
+                  decoration: InputDecoration(
+                    hintText: 'Type a message...',
+                    hintStyle: TextStyle(
+                      color: AppColors.textGray.withOpacity(0.6),
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                  ),
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+
+            // Send Button
+            GestureDetector(
+              onTap: _isSending ? null : _sendMessage,
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(23),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: _isSending
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.send_rounded,
+                        color: Colors.white, size: 22),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -344,10 +402,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Start a conversation with ${widget.userName}',
+            'Say hi to ${widget.userName}! 👋',
+            style: const TextStyle(
+              color: AppColors.textDark,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Send a message to start the conversation',
             style: TextStyle(
-              color: AppColors.textGray,
-              fontSize: 14,
+              color: AppColors.textGray.withOpacity(0.7),
+              fontSize: 13,
             ),
           ),
         ],
@@ -357,7 +424,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Widget _buildDateDivider(Timestamp? timestamp) {
     if (timestamp == null) return const SizedBox.shrink();
-    
+
     final date = timestamp.toDate();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -375,19 +442,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     return Center(
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        margin: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         decoration: BoxDecoration(
-          color: AppColors.background,
+          color: AppColors.primary.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           dateText,
           style: TextStyle(
             fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textGray.withOpacity(0.7),
-            letterSpacing: 0.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary.withOpacity(0.7),
           ),
         ),
       ),
@@ -399,18 +465,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final time = timestamp != null
         ? '${timestamp.toDate().hour.toString().padLeft(2, '0')}:${timestamp.toDate().minute.toString().padLeft(2, '0')}'
         : '';
+    final isRead = message['read'] as bool? ?? false;
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: EdgeInsets.only(
-          bottom: 8,
-          left: isMe ? 64 : 0,
-          right: isMe ? 0 : 64,
+          bottom: 4,
+          left: isMe ? 56 : 0,
+          right: isMe ? 0 : 56,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
         decoration: BoxDecoration(
-          color: isMe ? Colors.white : AppColors.primary.withOpacity(0.1),
+          gradient: isMe ? AppColors.primaryGradient : null,
+          color: isMe ? null : Colors.white,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -418,21 +486,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             bottomRight: Radius.circular(isMe ? 4 : 16),
           ),
           border: isMe
-              ? Border.all(color: AppColors.border.withOpacity(0.5))
-              : null,
+              ? null
+              : Border.all(color: AppColors.primary.withOpacity(0.1)),
+          boxShadow: [
+            BoxShadow(
+              color: isMe
+                  ? AppColors.primary.withOpacity(0.12)
+                  : Colors.black.withOpacity(0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            // Message text
             Text(
               message['message'] as String? ?? '',
               style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textDark,
-                height: 1.4,
+                fontSize: 14.5,
+                color: isMe ? Colors.white : AppColors.textDark,
+                height: 1.35,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
+            // Time + read receipts
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -440,15 +519,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   time,
                   style: TextStyle(
                     fontSize: 10,
-                    color: AppColors.textGray.withOpacity(0.7),
+                    color: isMe
+                        ? Colors.white.withOpacity(0.7)
+                        : AppColors.textGray.withOpacity(0.7),
                   ),
                 ),
                 if (isMe) ...[
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 3),
                   Icon(
-                    (message['read'] as bool? ?? false) ? Icons.done_all : Icons.done,
-                    size: 14,
-                    color: (message['read'] as bool? ?? false) ? AppColors.primary : AppColors.textGray.withOpacity(0.5),
+                    isRead ? Icons.done_all : Icons.done,
+                    size: 15,
+                    // Blue ticks when read (WhatsApp style)
+                    color: isRead
+                        ? const Color(0xFF53BDEB) // WhatsApp blue tick
+                        : Colors.white.withOpacity(0.5),
                   ),
                 ],
               ],
@@ -459,19 +543,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  bool _shouldShowDate(List<DocumentSnapshot> messages, int index) {
+  bool _shouldShowDate(List<Map<String, dynamic>> messages, int index) {
     if (index == 0) return true;
-    
-    final current = messages[index].data() as Map<String, dynamic>;
-    final previous = messages[index - 1].data() as Map<String, dynamic>;
-    
+
+    final current = messages[index];
+    final previous = messages[index - 1];
+
     final currentTime = (current['timestamp'] as Timestamp?)?.toDate();
     final previousTime = (previous['timestamp'] as Timestamp?)?.toDate();
-    
+
     if (currentTime == null || previousTime == null) return false;
-    
+
     return currentTime.day != previousTime.day ||
-           currentTime.month != previousTime.month ||
-           currentTime.year != previousTime.year;
+        currentTime.month != previousTime.month ||
+        currentTime.year != previousTime.year;
   }
 }

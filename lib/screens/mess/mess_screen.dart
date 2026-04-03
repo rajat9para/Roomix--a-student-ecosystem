@@ -186,33 +186,49 @@ class _MessScreenState extends State<MessScreen> {
     _authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.scaffoldBackground,
       appBar: AppBar(
         title: const Text(
           'Mess Services',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: AppColors.textDark,
+            color: Colors.white,
           ),
         ),
         centerTitle: true,
-        backgroundColor: AppColors.background,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: AppColors.headerGradient,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.primary),
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+          ),
+        ),
         actions: [
           Badge(
             label: Text('${_getActiveFilterCount()}'),
             isLabelVisible: _getActiveFilterCount() > 0,
             child: IconButton(
-              icon: const Icon(Icons.tune, color: AppColors.primary),
+              icon: const Icon(Icons.tune, color: Colors.white),
               onPressed: _showFilterBottomSheet,
             ),
           ),
         ],
       ),
       body: Container(
-        color: AppColors.background,
+        color: AppColors.scaffoldBackground,
         child: Column(
           children: [
             // Search bar
@@ -222,9 +238,10 @@ class _MessScreenState extends State<MessScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.12)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: AppColors.primary.withOpacity(0.06),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -235,7 +252,7 @@ class _MessScreenState extends State<MessScreen> {
                   style: const TextStyle(color: AppColors.textDark),
                   decoration: InputDecoration(
                     hintText: 'Search mess...',
-                    hintStyle: TextStyle(color: AppColors.textGray),
+                    hintStyle: const TextStyle(color: AppColors.textGray),
                     prefixIcon: const Icon(Icons.search, color: AppColors.primary),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -546,20 +563,7 @@ class _MessScreenState extends State<MessScreen> {
       onTap: () => SmoothNavigation.push(context, MessDetailScreen(mess: item)),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.border.withOpacity(0.5),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: AppColors.elevatedCardDecoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -116,6 +116,7 @@ class LostFoundProvider with ChangeNotifier {
         location: item.location ?? '',
         contact: item.contact,
         image: item.image,
+        images: item.images,
         userId: item.userId ?? '',
       );
     } catch (e) {
