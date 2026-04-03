@@ -1,0 +1,9 @@
+Placeholder for NEW_LOGO.png
+Replace this file with the actual logo image file.
+
+The app expects: assets/images/NEW_LOGO.png
+Used in:
+- lib/screens/splash_screen.dart (line 316)
+- lib/services/map_service.dart (line 50)
+
+For development, you can use a 256x256 PNG or replace with actual branding.

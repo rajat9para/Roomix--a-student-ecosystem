@@ -1,0 +1,62 @@
+{
+    "name": "Roomix - PG Finder & Roommate Matcher",
+    "short_name": "Roomix",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0F172A",
+    "theme_color": "#8B5CF6",
+    "description": "Find perfect rooms, PGs, and roommates near your campus",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "screenshots": [
+        {
+            "src": "assets/images/NEW_LOGO_PLACEHOLDER.png",
+            "sizes": "540x720",
+            "form_factor": "narrow"
+        }
+    ],
+    "icons": [
+        {
+            "src": "favicon.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "favicon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "favicon.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "favicon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "categories": ["lifestyle", "productivity"],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "Find Rooms",
+            "short_name": "Rooms",
+            "description": "Search for available rooms",
+            "url": "/rooms",
+            "icons": [{"src": "favicon.png", "sizes": "192x192"}]
+        },
+        {
+            "name": "Find Roommates",
+            "short_name": "Roommates",
+            "description": "Find compatible roommates",
+            "url": "/roommates",
+            "icons": [{"src": "favicon.png", "sizes": "192x192"}]
+        }
+    ]
+}
